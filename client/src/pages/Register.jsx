@@ -69,7 +69,7 @@ export const Register = () => {
             Join TicketHub
           </h1>
           <p className="mt-[1.2rem] text-[1.6rem] leading-[1.7] text-[var(--color-text-secondary)]">
-            Create your account to book movies, sports, and live events with one smooth flow.
+            Create your account to browse events, book tickets, and manage your bookings.
           </p>
 
           <form className="mt-[2.6rem] grid gap-[1.6rem]" onSubmit={handleSubmit}>

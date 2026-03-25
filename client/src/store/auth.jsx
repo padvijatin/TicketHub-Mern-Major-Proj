@@ -12,6 +12,9 @@ export const AuthProvider = ({ children }) => {
   const authorizationToken = token ? `Bearer ${token}` : "";
   const isLoggedIn = Boolean(token);
   const userName = user?.username || "";
+  const userRole = user?.role || "user";
+  const isAdmin = userRole === "admin";
+  const isOrganizer = userRole === "organizer";
 
   const persistAuth = ({ token: nextToken, user: nextUser }) => {
     if (nextToken) {
@@ -91,13 +94,16 @@ export const AuthProvider = ({ children }) => {
       value={{
         API_BASE_URL,
         authorizationToken,
+        isAdmin,
         isLoggedIn,
         isLoading,
+        isOrganizer,
         loginUser,
         logoutUser,
         registerUser,
         user,
         userName,
+        userRole,
       }}
     >
       {children}

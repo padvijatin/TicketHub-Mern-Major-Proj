@@ -1,10 +1,10 @@
-import { NavLink } from "react-router-dom";
+﻿import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../store/auth.jsx";
 
 export const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isLoggedIn, userName } = useAuth();
+  const { isAdmin, isLoggedIn, userName } = useAuth();
   const containerClassName = "mx-auto w-[min(120rem,calc(100%_-_3.2rem))]";
   const desktopLinkClassName = ({ isActive }) =>
     [
@@ -28,8 +28,8 @@ export const Navbar = () => {
     { to: "/events", label: "Events" },
     { to: "/about", label: "About" },
     { to: "/contact", label: "Contact" },
-    { to: "/admin", label: "Admin" },
   ];
+  const adminLinks = isAdmin ? [{ to: "/admin", label: "Admin" }] : [];
 
   const authLinks = isLoggedIn
     ? [{ to: "/logout", label: "Logout" }]
@@ -38,7 +38,8 @@ export const Navbar = () => {
         { to: "/login", label: "Login" },
       ];
 
-  const links = [...baseLinks, ...authLinks];
+  const links = [...baseLinks, ...adminLinks, ...authLinks];
+  const greeting = userName ? `Hi, ${userName}` : "";
 
   return (
     <header className="sticky top-0 z-[1000] border-b border-[rgba(28,28,28,0.08)] bg-[rgba(255,255,255,0.88)] shadow-[0_14px_30px_rgba(28,28,28,0.06)] backdrop-blur-[18px]">
@@ -66,9 +67,9 @@ export const Navbar = () => {
               {link.label}
             </NavLink>
           ))}
-          {isLoggedIn && userName ? (
+          {isLoggedIn && greeting ? (
             <span className="text-[1.5rem] font-bold text-[var(--color-text-primary)]">
-              Hi, {userName}
+              {greeting}
             </span>
           ) : null}
         </nav>
@@ -100,9 +101,9 @@ export const Navbar = () => {
                 {link.label}
               </NavLink>
             ))}
-            {isLoggedIn && userName ? (
+            {isLoggedIn && greeting ? (
               <span className="text-[1.5rem] font-bold text-[var(--color-text-primary)]">
-                Hi, {userName}
+                {greeting}
               </span>
             ) : null}
           </nav>

@@ -1,9 +1,11 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const dotenv = require("dotenv");
 const path = require("path");
 const connectDb = require("./utils/db");
 const authRoute = require("./router/auth-router");
+const eventRoute = require("./router/event-router");
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
@@ -19,6 +21,11 @@ const allowedOrigins = new Set([
   ...configuredOrigins,
 ]);
 
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 app.use(
   cors({
     origin(origin, callback) {
@@ -39,7 +46,7 @@ app.use(
 );
 app.use(express.json());
 app.use("/api/auth", authRoute);
-
+app.use("/api/events", eventRoute);
 
 app.get("/", (req, res) => {
   res.status(200).json({

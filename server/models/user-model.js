@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+const allowedRoles = ["user", "organizer", "admin"];
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -26,10 +28,13 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
-    isAdmin: {
-      type: Boolean,
-      default: false,
-    }
+    role: {
+      type: String,
+      enum: allowedRoles,
+      default: "user",
+      trim: true,
+      lowercase: true,
+    },
   },
   {
     timestamps: true,
@@ -49,12 +54,22 @@ userSchema.methods.comparePassword = function comparePassword(password) {
   return bcrypt.compare(password, this.password);
 };
 
+userSchema.methods.getRole = function getRole() {
+  if (allowedRoles.includes(this.role)) {
+    return this.role;
+  }
+
+  return "user";
+};
+
 userSchema.methods.generateToken = function generateToken() {
+  const role = this.getRole();
+
   return jwt.sign(
     {
       userId: this._id.toString(),
       email: this.email,
-      isAdmin: this.isAdmin,
+      role,
     },
     process.env.JWT_SECRET,
     {
