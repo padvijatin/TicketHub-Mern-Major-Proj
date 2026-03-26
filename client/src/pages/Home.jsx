@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { A11y, Autoplay, EffectFade } from "swiper/modules";
+import { A11y, Autoplay, EffectFade, Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import "swiper/css/effect-fade";
-import { ListingGrid } from "../components/ListingGrid.jsx";
+import "swiper/css/navigation";
+import EventCard from "../components/EventCard.jsx";
+import { useWishlist } from "../store/wishlist.jsx";
 import { getEvents } from "../utils/eventApi.js";
 
 const heroFallbackByType = {
@@ -13,7 +15,6 @@ const heroFallbackByType = {
   sports: "bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_52%,#22c55e_100%)]",
   event: "bg-[linear-gradient(135deg,#1c1c1c_0%,#7b3fe4_46%,#f84464_100%)]",
 };
-
 const HeroSlide = ({ slide }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const fallbackClassName = heroFallbackByType[slide.contentType] || heroFallbackByType.event;
@@ -48,12 +49,105 @@ const HeroSlide = ({ slide }) => {
   );
 };
 
+const HomeRail = ({
+  title,
+  badge,
+  description,
+  to,
+  items,
+  isLoading,
+  railId,
+  emptyMessage,
+}) => {
+  const prevClassName = `${railId}-prev`;
+  const nextClassName = `${railId}-next`;
+  const slides = isLoading
+    ? Array.from({ length: 4 }, (_, index) => ({ id: `${railId}-${index}` }))
+    : items;
+
+  return (
+    <section className="mt-[3rem]">
+      <div className="mb-[1.6rem] flex items-center justify-between gap-[1.4rem]">
+        <div>
+          {badge ? (
+            <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.08)] px-[1rem] py-[0.65rem] text-[1.05rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-primary)]">
+              {badge}
+            </span>
+          ) : null}
+          <h2 className="mt-[0.9rem] text-[2.4rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-[0.6rem] text-[1.4rem] leading-[1.65] text-[var(--color-text-secondary)]">
+              {description}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-[0.9rem]">
+          <Link
+            to={to}
+            className="text-[1.4rem] font-bold text-[var(--color-primary)] transition-colors duration-200 hover:text-[var(--color-primary-hover)]"
+          >
+            See all
+          </Link>
+          <button
+            type="button"
+            className={`${prevClassName} hidden h-[4rem] w-[4rem] items-center justify-center rounded-full border border-[rgba(28,28,28,0.08)] bg-white text-[var(--color-text-primary)] shadow-[var(--shadow-soft)] transition-colors duration-200 hover:border-[rgba(248,68,100,0.18)] hover:text-[var(--color-primary)] md:inline-flex`}
+            aria-label={`Previous ${title}`}
+          >
+            <ChevronLeft className="h-[1.8rem] w-[1.8rem]" />
+          </button>
+          <button
+            type="button"
+            className={`${nextClassName} hidden h-[4rem] w-[4rem] items-center justify-center rounded-full border border-[rgba(28,28,28,0.08)] bg-white text-[var(--color-text-primary)] shadow-[var(--shadow-soft)] transition-colors duration-200 hover:border-[rgba(248,68,100,0.18)] hover:text-[var(--color-primary)] md:inline-flex`}
+            aria-label={`Next ${title}`}
+          >
+            <ChevronRight className="h-[1.8rem] w-[1.8rem]" />
+          </button>
+        </div>
+      </div>
+
+      {!isLoading && !items.length ? (
+        <div className="rounded-[2.2rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.8rem] py-[1.6rem] text-[1.5rem] text-[var(--color-text-secondary)] shadow-[var(--shadow-soft)]">
+          {emptyMessage}
+        </div>
+      ) : (
+        <Swiper
+          modules={[A11y, Navigation]}
+          navigation={{
+            prevEl: `.${prevClassName}`,
+            nextEl: `.${nextClassName}`,
+          }}
+          spaceBetween={20}
+          slidesPerView={1.12}
+          breakpoints={{
+            560: { slidesPerView: 1.45 },
+            768: { slidesPerView: 2.1 },
+            1024: { slidesPerView: 3.1 },
+            1280: { slidesPerView: 4 },
+          }}
+        >
+          {slides.map((item) => (
+            <SwiperSlide key={item.id || item.title} className="h-auto">
+              <div className="h-full">
+                <EventCard event={item} isLoading={isLoading} size="listing" />
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      )}
+    </section>
+  );
+};
+
 export const Home = () => {
   const [swiper, setSwiper] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [homeEvents, setHomeEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const { wishlistItems } = useWishlist();
 
   useEffect(() => {
     let ignore = false;
@@ -63,7 +157,7 @@ export const Home = () => {
       setError("");
 
       try {
-        const eventData = await getEvents({ limit: 6 });
+        const eventData = await getEvents({ limit: 24 });
 
         if (!ignore) {
           setHomeEvents(eventData);
@@ -87,13 +181,38 @@ export const Home = () => {
   }, []);
 
   const heroSlides = useMemo(() => homeEvents.slice(0, 3), [homeEvents]);
-  const featuredEvents = useMemo(() => {
-    if (homeEvents.length > 3) {
-      return homeEvents.slice(3, 6);
-    }
 
-    return homeEvents.slice(0, 3);
-  }, [homeEvents]);
+  const recommendedItemsByType = useMemo(() => {
+    const wishlistedTypes = [...new Set(wishlistItems.map((item) => item.contentType).filter(Boolean))];
+    const orderedTypes = [
+      ...wishlistedTypes,
+      ...["movie", "event", "sports"].filter((type) => !wishlistedTypes.includes(type)),
+    ];
+
+    return orderedTypes.reduce((accumulator, type) => {
+      accumulator[type] = homeEvents.filter((item) => item.contentType === type).slice(0, 8);
+      return accumulator;
+    }, {});
+  }, [homeEvents, wishlistItems]);
+
+  const recommendedMovies = recommendedItemsByType.movie || [];
+  const recommendedEvents = recommendedItemsByType.event || [];
+  const recommendedSports = recommendedItemsByType.sports || [];
+
+  const popularEvents = useMemo(
+    () => homeEvents.filter((item) => item.contentType === "event").slice(0, 8),
+    [homeEvents]
+  );
+
+  const popularMovies = useMemo(
+    () => homeEvents.filter((item) => item.contentType === "movie").slice(0, 8),
+    [homeEvents]
+  );
+
+  const topGamesAndSportsEvents = useMemo(
+    () => homeEvents.filter((item) => item.contentType === "sports").slice(0, 8),
+    [homeEvents]
+  );
 
   const hasSlides = heroSlides.length > 0;
 
@@ -178,16 +297,74 @@ export const Home = () => {
           )}
         </div>
 
-        <div className="mt-[2.6rem]">
-          <ListingGrid
-            items={featuredEvents}
-            isLoading={isLoading}
-            error={error}
-            columnsClassName="sm:grid-cols-2 lg:grid-cols-3"
-            emptyMessage="No featured events are available from the database yet."
-            skeletonCount={3}
-          />
-        </div>
+        {error ? (
+          <div className="mt-[2.6rem] rounded-[2.2rem] border border-[rgba(248,68,100,0.14)] bg-[rgba(248,68,100,0.05)] px-[1.8rem] py-[1.6rem] text-[1.5rem] text-[var(--color-text-secondary)]">
+            {error}
+          </div>
+        ) : (
+          <>
+            <HomeRail
+              title="Recommended Movies"
+              badge="For you"
+              description="Movie picks shaped by what you save and browse."
+              to="/movies"
+              items={recommendedMovies}
+              isLoading={isLoading}
+              railId="recommended-movies"
+              emptyMessage="No movie recommendations are available right now."
+            />
+            <HomeRail
+              title="Recommended Events"
+              badge="For you"
+              description="Live event picks selected from your current taste."
+              to="/events"
+              items={recommendedEvents}
+              isLoading={isLoading}
+              railId="recommended-events"
+              emptyMessage="No event recommendations are available right now."
+            />
+            <HomeRail
+              title="Recommended Sports"
+              badge="For you"
+              description="Sports picks lined up from the categories you like."
+              to="/sports"
+              items={recommendedSports}
+              isLoading={isLoading}
+              railId="recommended-sports"
+              emptyMessage="No sports recommendations are available right now."
+            />
+            <HomeRail
+              title="Popular Movies"
+              badge="Trending"
+              description="Big-screen picks people usually open first."
+              to="/movies"
+              items={popularMovies}
+              isLoading={isLoading}
+              railId="popular-movies"
+              emptyMessage="No popular movies are available right now."
+            />
+            <HomeRail
+              title="Popular Events"
+              badge="Trending"
+              description="Events getting the most attention right now."
+              to="/events"
+              items={popularEvents}
+              isLoading={isLoading}
+              railId="popular-events"
+              emptyMessage="No popular events are available right now."
+            />
+            <HomeRail
+              title="Top Games & Sport Events"
+              badge="Sports spotlight"
+              description="One sports rail for match days, leagues, and stadium events."
+              to="/sports"
+              items={topGamesAndSportsEvents}
+              isLoading={isLoading}
+              railId="top-games-sports-events"
+              emptyMessage="No top games or sports events are available right now."
+            />
+          </>
+        )}
       </section>
     </main>
   );

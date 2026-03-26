@@ -10,6 +10,7 @@ import { Contact } from "./pages/Contact";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Logout } from "./pages/Logout";
+import { Wishlist } from "./pages/Wishlist";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 
@@ -27,6 +28,7 @@ const App = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/logout" element={<Logout />} />
       </Routes>
       <Footer />

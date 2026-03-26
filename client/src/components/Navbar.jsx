@@ -1,10 +1,13 @@
 ﻿import { NavLink } from "react-router-dom";
 import { useState } from "react";
+import { Heart } from "lucide-react";
 import { useAuth } from "../store/auth.jsx";
+import { useWishlist } from "../store/wishlist.jsx";
 
 export const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAdmin, isLoggedIn, userName } = useAuth();
+  const { wishlistCount } = useWishlist();
   const containerClassName = "mx-auto w-[min(120rem,calc(100%_-_3.2rem))]";
   const desktopLinkClassName = ({ isActive }) =>
     [
@@ -20,6 +23,13 @@ export const Navbar = () => {
         ? "border-[rgba(248,68,100,0.18)] bg-[rgba(248,68,100,0.08)] text-[var(--color-primary)]"
         : "hover:border-[rgba(248,68,100,0.18)] hover:bg-[rgba(248,68,100,0.08)] hover:text-[var(--color-primary)]",
     ].join(" ");
+  const wishlistButtonClassName = ({ isActive }) =>
+    [
+      "relative inline-flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-full border transition-all duration-[250ms]",
+      isActive
+        ? "border-[rgba(248,68,100,0.18)] bg-[rgba(248,68,100,0.08)] text-[var(--color-primary)]"
+        : "border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:border-[rgba(248,68,100,0.18)] hover:bg-[rgba(248,68,100,0.08)] hover:text-[var(--color-primary)]",
+    ].join(" ");
 
   const baseLinks = [
     { to: "/", label: "Home", end: true },
@@ -30,9 +40,10 @@ export const Navbar = () => {
     { to: "/contact", label: "Contact" },
   ];
   const adminLinks = isAdmin ? [{ to: "/admin", label: "Admin" }] : [];
+  const wishlistLink = { to: "/wishlist", label: "Wishlist" };
 
   const authLinks = isLoggedIn
-    ? [{ to: "/logout", label: "Logout" }]
+    ? [wishlistLink, { to: "/logout", label: "Logout" }]
     : [
         { to: "/register", label: "Register" },
         { to: "/login", label: "Login" },
@@ -58,14 +69,30 @@ export const Navbar = () => {
 
         <nav className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-[1.1rem] max-[980px]:hidden">
           {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={desktopLinkClassName}
-            >
-              {link.label}
-            </NavLink>
+            link.to === "/wishlist" ? (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={wishlistButtonClassName}
+                aria-label="Open wishlist"
+              >
+                <Heart className={`h-[1.9rem] w-[1.9rem] ${wishlistCount ? "fill-current" : ""}`} />
+                {wishlistCount ? (
+                  <span className="absolute -right-[0.1rem] -top-[0.2rem] inline-flex min-w-[1.9rem] items-center justify-center rounded-full bg-[var(--color-primary)] px-[0.45rem] py-[0.2rem] text-[1rem] font-extrabold leading-none text-[var(--color-text-light)]">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                ) : null}
+              </NavLink>
+            ) : (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={desktopLinkClassName}
+              >
+                {link.label}
+              </NavLink>
+            )
           ))}
           {isLoggedIn && greeting ? (
             <span className="text-[1.5rem] font-bold text-[var(--color-text-primary)]">

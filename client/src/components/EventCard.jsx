@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, Heart, MapPin } from "lucide-react";
+import { CalendarDays, Heart, MapPin, Star } from "lucide-react";
+import { useWishlist } from "../store/wishlist.jsx";
 
 const routeByType = {
   movie: "/movies",
@@ -78,12 +79,44 @@ const getCategoryLabel = (event) => {
   return "Live Event";
 };
 
+const getStableRating = (event) => {
+  if (typeof event.rating === "number" && event.rating > 0) {
+    return Math.min(5, Math.max(0, Number(event.rating.toFixed(1))));
+  }
+
+  const seedSource = `${event.id || event._id || ""}${event.title || ""}${event.category || ""}`;
+  const seedValue = Array.from(seedSource).reduce(
+    (total, character, index) => total + character.charCodeAt(0) * (index + 1),
+    0
+  );
+
+  const generatedRating = 3.8 + (seedValue % 12) / 10;
+  return Number(Math.min(4.9, generatedRating).toFixed(1));
+};
+
+const StarRating = ({ rating, compact = false }) => {
+  const starClassName = compact ? "h-[1.45rem] w-[1.45rem]" : "h-[1.8rem] w-[1.8rem]";
+  const ratingClassName = compact ? "text-[1.3rem]" : "text-[1.5rem]";
+
+  return (
+    <div className="flex items-center gap-[0.6rem]">
+      <Star className={`${starClassName} fill-[#f59e0b] text-[#f59e0b]`} />
+      <span className={`${ratingClassName} font-bold text-[var(--color-text-primary)]`}>
+        {rating.toFixed(1)}
+      </span>
+    </div>
+  );
+};
+
 const EventCardSkeleton = ({ size = "default" }) => {
   const isListing = size === "listing";
   const mediaAspectClassName = isListing ? "aspect-[5/6]" : "aspect-[16/10]";
+  const cardShellClassName = isListing ? "h-[48rem]" : "h-[44rem]";
 
   return (
-    <article className="h-full overflow-hidden rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)]">
+    <article
+      className={`h-full overflow-hidden rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)] ${cardShellClassName}`}
+    >
       <div className={`${mediaAspectClassName} animate-pulse bg-[linear-gradient(180deg,#eceff3_0%,#e2e8f0_100%)]`} />
       <div className="grid gap-[1rem] p-[1.5rem] animate-pulse">
         <div className="h-[1.8rem] w-[72%] rounded-full bg-[#e7eaee]" />
@@ -101,20 +134,18 @@ const EventCardSkeleton = ({ size = "default" }) => {
 const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
   const primaryImage = event.image || event.poster || fallbackImage;
   const [imageSrc, setImageSrc] = useState(primaryImage);
-  const [isLiked, setIsLiked] = useState(Boolean(event.isWishlisted || event.liked));
+  const { isWishlisted, toggleWishlist } = useWishlist();
   const isListing = size === "listing";
   const mediaAspectClassName = isListing ? "aspect-[5/6]" : "aspect-[16/10]";
+  const cardShellClassName = isListing ? "h-[48rem]" : "h-[44rem]";
   const titleClassName = isListing
     ? "min-h-[5.4rem] text-[1.85rem]"
     : "min-h-[5.2rem] text-[1.8rem]";
+  const isLiked = isWishlisted(event) || Boolean(event.isWishlisted || event.liked);
 
   useEffect(() => {
     setImageSrc(primaryImage);
   }, [primaryImage]);
-
-  useEffect(() => {
-    setIsLiked(Boolean(event.isWishlisted || event.liked));
-  }, [event.isWishlisted, event.liked, event.id, event.title]);
 
   if (isLoading) {
     return <EventCardSkeleton size={size} />;
@@ -125,6 +156,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
   const date = formatDate(event.date);
   const price = formatPrice(event.price);
   const category = getCategoryLabel(event);
+  const rating = getStableRating(event);
   const destination = event.to || routeByType[event.contentType] || "/events";
   const fallbackClassName = fallbackByType[event.contentType] || fallbackByType.event;
 
@@ -137,7 +169,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
   const handleWishlistToggle = (eventObject) => {
     eventObject.preventDefault();
     eventObject.stopPropagation();
-    setIsLiked((currentValue) => !currentValue);
+    toggleWishlist(event);
   };
 
   return (
@@ -158,7 +190,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
 
       <Link
         to={destination}
-        className="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-[rgba(248,68,100,0.14)] hover:shadow-[0_20px_34px_rgba(28,28,28,0.08)]"
+        className={`group flex h-full flex-col overflow-hidden rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-[rgba(248,68,100,0.14)] hover:shadow-[0_20px_34px_rgba(28,28,28,0.08)] ${cardShellClassName}`}
       >
         <div className={`relative overflow-hidden ${mediaAspectClassName} ${fallbackClassName}`}>
           <img
@@ -184,7 +216,11 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
             {title}
           </h3>
 
-          <div className="mt-[1.2rem] grid gap-[0.8rem] text-[1.3rem] text-[var(--color-text-secondary)]">
+          <div className="mt-[1.1rem]">
+            <StarRating rating={rating} compact />
+          </div>
+
+          <div className="mt-[1rem] grid gap-[0.8rem] text-[1.3rem] text-[var(--color-text-secondary)]">
             <div className="flex items-center gap-[0.7rem]">
               <CalendarDays className="h-[1.5rem] w-[1.5rem] shrink-0 text-[var(--color-primary)]" />
               <span className="truncate">{date}</span>

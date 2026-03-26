@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const dotenv = require("dotenv");
@@ -6,6 +6,7 @@ const path = require("path");
 const connectDb = require("./utils/db");
 const authRoute = require("./router/auth-router");
 const eventRoute = require("./router/event-router");
+const wishlistRoute = require("./router/wishlist-router");
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
@@ -47,6 +48,7 @@ app.use(
 app.use(express.json());
 app.use("/api/auth", authRoute);
 app.use("/api/events", eventRoute);
+app.use("/api/wishlist", wishlistRoute);
 
 app.get("/", (req, res) => {
   res.status(200).json({

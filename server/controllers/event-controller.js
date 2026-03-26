@@ -1,4 +1,4 @@
-const Event = require("../models/event-model");
+﻿const Event = require("../models/event-model");
 
 const moviePattern = /(movie|film|cinema|screen|premiere)/i;
 const sportsPattern = /(sport|cricket|football|match|league|ipl|cup|tournament|stadium)/i;
@@ -126,4 +126,5 @@ const getEvents = async (req, res) => {
 
 module.exports = {
   getEvents,
+  serializeEvent,
 };
