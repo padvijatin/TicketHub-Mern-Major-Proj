@@ -157,7 +157,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
   const price = formatPrice(event.price);
   const category = getCategoryLabel(event);
   const rating = getStableRating(event);
-  const destination = event.to || routeByType[event.contentType] || "/events";
+  const destination = event.id ? `/event/${event.id}` : event.to || routeByType[event.contentType] || "/events";
   const fallbackClassName = fallbackByType[event.contentType] || fallbackByType.event;
 
   const handleImageError = () => {

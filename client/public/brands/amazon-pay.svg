@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 48" role="img" aria-labelledby="title">
+  <title>Amazon Pay</title>
+  <text x="14" y="24" fill="#111827" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif">amazon</text>
+  <text x="14" y="40" fill="#00A8E1" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif">pay</text>
+  <path d="M16 28c18 10 45 10 63 3" fill="none" stroke="#FF9900" stroke-linecap="round" stroke-width="3"/>
+  <path d="m75 30 6-1.5-3.8 4.8" fill="#FF9900"/>
+</svg>

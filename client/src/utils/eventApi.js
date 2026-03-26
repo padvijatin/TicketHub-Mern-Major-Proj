@@ -8,3 +8,8 @@ export const getEvents = async (params = {}) => {
   const response = await axios.get(eventsApiUrl, { params });
   return response.data.events || [];
 };
+
+export const getEventById = async (eventId) => {
+  const events = await getEvents({ limit: 200 });
+  return events.find((event) => event.id === eventId) || null;
+};

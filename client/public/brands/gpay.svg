@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" role="img" aria-labelledby="title">
+  <title>Google Pay</title>
+  <circle cx="24" cy="24" r="14" fill="#fff"/>
+  <path d="M16 27.4 23.1 15h3.2l-7.1 12.4Z" fill="#4285F4"/>
+  <path d="M23 33 30.7 19.7H34L26.3 33Z" fill="#34A853"/>
+  <path d="M26 15h5L23.4 28.4h-5Z" fill="#FBBC05"/>
+  <text x="47" y="29" fill="#202124" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif">GPay</text>
+</svg>

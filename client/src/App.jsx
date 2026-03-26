@@ -11,6 +11,10 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Logout } from "./pages/Logout";
 import { Wishlist } from "./pages/Wishlist";
+import { EventDetails } from "./pages/EventDetails";
+import { SeatSelection } from "./pages/SeatSelection";
+import { Payment } from "./pages/Payment";
+import { BookingConfirmation } from "./pages/BookingConfirmation";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 
@@ -29,6 +33,10 @@ const App = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/event/:id" element={<EventDetails />} />
+        <Route path="/event/:id/seats" element={<SeatSelection />} />
+        <Route path="/event/:id/payment" element={<Payment />} />
+        <Route path="/event/:id/confirmation" element={<BookingConfirmation />} />
         <Route path="/logout" element={<Logout />} />
       </Routes>
       <Footer />
