@@ -9,7 +9,7 @@ import { useWishlist } from "../store/wishlist.jsx";
 export const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { isAdmin, isLoggedIn, userName } = useAuth();
+  const { isAdmin, isLoggedIn, isOrganizer, userName } = useAuth();
   const { wishlistCount } = useWishlist();
 
   const desktopLinkClassName = ({ isActive }) =>
@@ -39,6 +39,7 @@ export const Navbar = () => {
     { to: "/about", label: "About" },
     { to: "/contact", label: "Contact" },
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
+    ...(isOrganizer ? [{ to: "/organizer", label: "Organizer" }] : []),
   ];
   const authActionLinks = isLoggedIn
     ? [{ to: "/logout", label: "Logout" }]

@@ -10,7 +10,6 @@ import {
   MapPin,
   Share2,
   Star,
-  Ticket,
   Users,
 } from "lucide-react";
 import { useWishlist } from "../store/wishlist.jsx";
@@ -44,6 +43,8 @@ const formatTime = (value) => {
   });
 };
 
+const formatCurrency = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+
 const getStableRating = (event = {}) => {
   const seedSource = `${event.id || ""}${event.title || ""}${event.category || ""}`;
   const seedValue = Array.from(seedSource).reduce(
@@ -64,6 +65,35 @@ const getInterestedCount = (event = {}) => {
 
 const infoChipClassName =
   "inline-flex items-center gap-[0.8rem] rounded-full border border-[rgba(28,28,28,0.08)] bg-white px-[1.3rem] py-[0.95rem] text-[1.35rem] text-[var(--color-text-primary)] shadow-[0_10px_24px_rgba(28,28,28,0.04)]";
+
+const getAboutParagraphs = (event, eventDate, eventTime) => {
+  const customDescription = (event?.aboutThisEvent || "").trim();
+
+  if (customDescription) {
+    return customDescription
+      .split(/\n+/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+  }
+
+  return [
+    `Join us for an unforgettable experience at ${event.title}. This event will be held at ${event.venue}, ${event.city} on ${eventDate} starting at ${eventTime}. Don't miss out on one of the most anticipated ${event.category.toLowerCase()} experiences of the season.`,
+    "Whether you're a long-time fan or experiencing it for the first time, this event promises a lively atmosphere, smooth booking, and a memorable crowd. Grab your tickets before they sell out.",
+  ];
+};
+
+const groupSeatZones = (seatZones = []) => {
+  return seatZones.reduce((groups, zone) => {
+    const groupName = zone.sectionGroup || "Tickets";
+
+    if (!groups[groupName]) {
+      groups[groupName] = [];
+    }
+
+    groups[groupName].push(zone);
+    return groups;
+  }, {});
+};
 
 export const EventDetails = () => {
   const { id } = useParams();
@@ -109,7 +139,9 @@ export const EventDetails = () => {
   const isLiked = isWishlisted(event);
   const eventDate = formatDate(event.date);
   const eventTime = formatTime(event.date);
-  const eventPrice = `Rs ${Number(event.price || 0).toLocaleString("en-IN")}`;
+  const eventPrice = formatCurrency(event.price);
+  const aboutParagraphs = getAboutParagraphs(event, eventDate, eventTime);
+  const zoneGroups = groupSeatZones(event.seatZones || []);
   const terms = [
     "Entry is subject to valid ticket and photo ID.",
     "No refunds on confirmed bookings.",
@@ -197,15 +229,47 @@ export const EventDetails = () => {
                 <Info className="h-[1.9rem] w-[1.9rem] text-[var(--color-primary)]" />
                 About this Event
               </h2>
-              <p className="mt-[1.4rem] text-[1.6rem] leading-[1.8] text-[var(--color-text-secondary)]">
-                Join us for an unforgettable experience at <span className="font-bold text-[var(--color-text-primary)]">{event.title}</span>. This
-                event will be held at {event.venue}, {event.city} on {eventDate} starting at {eventTime}. Don&apos;t miss out on one of the
-                most anticipated {event.category.toLowerCase()} experiences of the season.
-              </p>
-              <p className="mt-[1.4rem] text-[1.6rem] leading-[1.8] text-[var(--color-text-secondary)]">
-                Whether you&apos;re a long-time fan or experiencing it for the first time, this event promises a lively atmosphere, smooth booking,
-                and a memorable crowd. Grab your tickets before they sell out.
-              </p>
+              {aboutParagraphs.map((paragraph) => (
+                <p
+                  key={paragraph}
+                  className="mt-[1.4rem] text-[1.6rem] leading-[1.8] text-[var(--color-text-secondary)]"
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </section>
+
+            <section className="rounded-[2.4rem] border border-[rgba(28,28,28,0.06)] bg-white p-[2rem] shadow-[var(--shadow-soft)]">
+              <h2 className="text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
+                Ticket Pricing
+              </h2>
+              <div className="mt-[1.6rem] space-y-[1.6rem]">
+                {Object.entries(zoneGroups).map(([groupName, zones]) => (
+                  <div key={groupName} className="rounded-[1.8rem] border border-[rgba(28,28,28,0.06)] bg-[rgba(28,28,28,0.02)] p-[1.4rem]">
+                    <p className="text-[1.2rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
+                      {groupName}
+                    </p>
+                    <div className="mt-[1rem] grid gap-[0.9rem]">
+                      {zones.map((zone) => (
+                        <div
+                          key={`${groupName}-${zone.name}`}
+                          className="flex flex-wrap items-center justify-between gap-[0.8rem] rounded-[1.4rem] bg-white px-[1.3rem] py-[1.1rem]"
+                        >
+                          <div>
+                            <p className="text-[1.55rem] font-bold text-[var(--color-text-primary)]">{zone.name}</p>
+                            <p className="mt-[0.25rem] text-[1.3rem] text-[var(--color-text-secondary)]">
+                              {zone.availableSeats} left
+                            </p>
+                          </div>
+                          <p className="text-[1.55rem] font-extrabold text-[var(--color-primary)]">
+                            {formatCurrency(zone.price)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-[2.4rem] border border-[rgba(28,28,28,0.06)] bg-white p-[2rem] shadow-[var(--shadow-soft)]">
@@ -314,7 +378,7 @@ export const EventDetails = () => {
                       {formatDate(suggestedEvent.date)}
                     </p>
                     <p className="mt-[0.25rem] text-[1.35rem] font-bold text-[var(--color-text-primary)]">
-                      Rs {Number(suggestedEvent.price || 0).toLocaleString("en-IN")}
+                      {formatCurrency(suggestedEvent.price)}
                     </p>
                   </div>
                 </Link>

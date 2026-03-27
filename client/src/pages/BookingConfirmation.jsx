@@ -9,8 +9,10 @@ export const BookingConfirmation = () => {
   const location = useLocation();
   const bookingState = location.state || {};
   const selectedItems = bookingState.items || [];
+  const summary = bookingState.summary || [];
   const total = bookingState.total || 0;
   const currency = bookingState.currency || "Rs ";
+  const bookingMeta = bookingState.bookingMeta || {};
   const paymentMethod = bookingState.paymentMethod || "upi";
   const bookingId = `TH${Date.now().toString(36).toUpperCase()}`;
   const { data: event, isLoading } = useQuery({
@@ -84,10 +86,37 @@ export const BookingConfirmation = () => {
                   </div>
                 </div>
                 <div>
+                  <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Sections</p>
+                  <p className="text-[1.4rem] font-bold text-[var(--color-text-primary)]">
+                    {bookingMeta.selectedZones?.length ? bookingMeta.selectedZones.join(", ") : "Standard allocation"}
+                  </p>
+                </div>
+                <div>
                   <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Payment Method</p>
                   <p className="text-[1.4rem] font-bold uppercase text-[var(--color-text-primary)]">
                     {paymentMethod}
                   </p>
+                </div>
+              </div>
+            ) : null}
+
+            {summary.length ? (
+              <div className="mt-[1.8rem] rounded-[1.8rem] bg-[rgba(28,28,28,0.03)] p-[1.4rem]">
+                <p className="text-[1.15rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
+                  Booking Breakdown
+                </p>
+                <div className="mt-[1rem] space-y-[0.8rem] text-[1.3rem]">
+                  {summary.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-[1rem]">
+                      <span className="text-[var(--color-text-secondary)]">
+                        {item.label} x {item.count}
+                      </span>
+                      <span className="font-bold text-[var(--color-text-primary)]">
+                        {item.currency}
+                        {(item.count * item.price).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}

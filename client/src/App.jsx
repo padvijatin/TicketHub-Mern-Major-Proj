@@ -5,6 +5,7 @@ import { Movies } from "./pages/Movies";
 import { Sports } from "./pages/Sports";
 import { Events } from "./pages/Events";
 import { Admin } from "./pages/Admin";
+import { Organizer } from "./pages/Organizer";
 import { About } from "./pages/About";
 import { Contact } from "./pages/Contact";
 import { Login } from "./pages/Login";
@@ -28,6 +29,7 @@ const App = () => {
         <Route path="/sports" element={<Sports />} />
         <Route path="/events" element={<Events />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/organizer" element={<Organizer />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/register" element={<Register />} />

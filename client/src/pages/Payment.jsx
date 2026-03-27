@@ -79,6 +79,7 @@ export const Payment = () => {
   const summary = bookingState.summary || [];
   const subtotal = bookingState.total || 0;
   const currency = bookingState.currency || "Rs ";
+  const bookingMeta = bookingState.bookingMeta || {};
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
@@ -138,6 +139,7 @@ export const Payment = () => {
           subtotal,
           total,
           currency,
+          bookingMeta,
           paymentMethod: selectedMethod,
         },
       });
@@ -337,6 +339,11 @@ export const Payment = () => {
             ) : null}
 
             <div className="mt-[1.6rem] space-y-[0.9rem] border-t border-[rgba(28,28,28,0.08)] pt-[1.4rem] text-[1.3rem]">
+              {bookingMeta.selectedZones?.length ? (
+                <div className="rounded-[1.4rem] bg-[rgba(28,28,28,0.03)] px-[1.2rem] py-[1rem] text-[1.2rem] text-[var(--color-text-secondary)]">
+                  Sections: <span className="font-bold text-[var(--color-text-primary)]">{bookingMeta.selectedZones.join(", ")}</span>
+                </div>
+              ) : null}
               {summary.map((item) => (
                 <div key={item.label} className="flex items-center justify-between gap-[1rem] text-[var(--color-text-secondary)]">
                   <span>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ListingFilters } from "../components/ListingFilters.jsx";
 import { ListingGrid } from "../components/ListingGrid.jsx";
+import { PageHeroCarousel } from "../components/PageHeroCarousel.jsx";
 import { filterItemsByLocation, useLocationStore } from "../store/location.jsx";
 import { getEvents } from "../utils/eventApi.js";
 import { filterListingItems, listingFilterConfigs } from "../utils/listingFilters.js";
@@ -53,6 +54,7 @@ export const Events = () => {
     () => filterListingItems(locationEvents, filterConfig, activeFilters),
     [activeFilters, filterConfig, locationEvents]
   );
+  const heroEvents = useMemo(() => locationEvents.slice(0, 3), [locationEvents]);
 
   const handleToggleFilter = (key, value) => {
     setActiveFilters((currentFilters) => ({
@@ -64,6 +66,8 @@ export const Events = () => {
   return (
     <main className="py-[3rem]">
       <section className="mx-auto w-[min(132rem,calc(100%_-_3.2rem))]">
+        <PageHeroCarousel items={heroEvents} type="event" />
+
         <div className="mb-[2.6rem]">
           <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.08)] px-[1.2rem] py-[0.8rem] text-[1.2rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-primary)]">
             Events

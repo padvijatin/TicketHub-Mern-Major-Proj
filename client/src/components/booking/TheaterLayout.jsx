@@ -96,6 +96,10 @@ export const TheaterLayout = ({ event }) => {
   }, [categories, selectedSeats]);
 
   const total = summary.reduce((amount, item) => amount + item.count * item.price, 0);
+  const bookingMeta = {
+    bookingType: "theater",
+    selectedZones: summary.map((item) => item.label),
+  };
 
   return (
     <div className="grid gap-[2rem] lg:grid-cols-[minmax(0,1.6fr)_minmax(30rem,0.9fr)]">
@@ -160,6 +164,7 @@ export const TheaterLayout = ({ event }) => {
         onRemove={toggleSeat}
         onClear={clearSelection}
         eventId={event.id}
+        bookingMeta={bookingMeta}
       />
     </div>
   );

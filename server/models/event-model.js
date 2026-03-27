@@ -1,5 +1,33 @@
 const mongoose = require("mongoose");
 
+const seatZoneSchema = new mongoose.Schema(
+  {
+    sectionGroup: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    availableSeats: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const eventSchema = new mongoose.Schema(
   {
     title: {
@@ -13,6 +41,11 @@ const eventSchema = new mongoose.Schema(
       trim: true,
     },
     description: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    aboutThisEvent: {
       type: String,
       trim: true,
       default: "",
@@ -35,6 +68,10 @@ const eventSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+    seatZones: {
+      type: [seatZoneSchema],
+      default: [],
     },
     totalSeats: {
       type: Number,

@@ -11,6 +11,7 @@ export const BookingSummary = ({
   onClear,
   eventId,
   hideChips = false,
+  bookingMeta = {},
 }) => {
   const navigate = useNavigate();
 
@@ -70,7 +71,7 @@ export const BookingSummary = ({
               type="button"
               onClick={() =>
                 navigate(`/event/${eventId}/payment`, {
-                  state: { items: selectedItems, summary, total, currency },
+                  state: { items: selectedItems, summary, total, currency, bookingMeta },
                 })
               }
               className="inline-flex h-[4.8rem] w-full items-center justify-center rounded-[1.4rem] bg-[var(--color-primary)] text-[1.5rem] font-bold text-[var(--color-text-light)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]"

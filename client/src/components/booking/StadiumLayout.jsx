@@ -63,6 +63,10 @@ export const StadiumLayout = ({ event }) => {
     const zone = zones.find((item) => item.id === zoneId);
     return Array.from({ length: count }, (_, index) => `${zone.section}-${index + 1}`);
   });
+  const bookingMeta = {
+    bookingType: "stadium",
+    selectedZones: summary.map((item) => item.label),
+  };
 
   return (
     <div className="grid gap-[2rem] lg:grid-cols-[minmax(0,1.5fr)_minmax(30rem,0.9fr)]">
@@ -176,6 +180,7 @@ export const StadiumLayout = ({ event }) => {
         onClear={clearSelection}
         eventId={event.id}
         hideChips
+        bookingMeta={bookingMeta}
       />
     </div>
   );
