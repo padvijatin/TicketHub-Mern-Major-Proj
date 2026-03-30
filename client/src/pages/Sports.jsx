@@ -27,7 +27,7 @@ export const Sports = () => {
         if (!ignore) {
           setSports(sportsData);
         }
-      } catch (fetchError) {
+      } catch {
         if (!ignore) {
           setError("Unable to load sports events right now.");
         }
@@ -71,10 +71,10 @@ export const Sports = () => {
             Sports
           </span>
           <h1 className="mt-[1.4rem] max-w-[12ch] text-[clamp(3rem,4.4vw,5rem)] leading-[1.05] font-extrabold tracking-[-0.04em]">
-            Stadium nights pulled from your existing event records.
+            Stadium nights, rivalries, and match-day energy.
           </h1>
           <p className="mt-[1.2rem] max-w-[62rem] text-[1.6rem] leading-[1.7] text-[var(--color-text-secondary)]">
-            This page now reads sports-like categories from the same MongoDB events collection.
+            Find games, tournaments, and live sports experiences around your city.
           </p>
         </div>
 

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { A11y, Autoplay, EffectFade, Navigation } from "swiper/modules";
+import { A11y, Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
-import "swiper/css/effect-fade";
 import "swiper/css/navigation";
 import EventCard from "../components/EventCard.jsx";
+import { HeroCarousel } from "../components/HeroCarousel.jsx";
 import { useLocationStore, filterItemsByLocation } from "../store/location.jsx";
 import { useWishlist } from "../store/wishlist.jsx";
 import { getEvents } from "../utils/eventApi.js";
@@ -143,8 +143,6 @@ const HomeRail = ({
 };
 
 export const Home = () => {
-  const [swiper, setSwiper] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [homeEvents, setHomeEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -164,7 +162,7 @@ export const Home = () => {
         if (!ignore) {
           setHomeEvents(eventData);
         }
-      } catch (fetchError) {
+      } catch {
         if (!ignore) {
           setError("Unable to load TicketHub events right now.");
         }
@@ -228,68 +226,10 @@ export const Home = () => {
       <section className="mx-auto w-[min(120rem,calc(100%_-_3.2rem))]">
         <div className="relative">
           {hasSlides ? (
-            <>
-              <Swiper
-                className="overflow-hidden rounded-[2.8rem]"
-                modules={[A11y, Autoplay, EffectFade]}
-                effect="fade"
-                loop={heroSlides.length > 1}
-                speed={700}
-                autoplay={
-                  heroSlides.length > 1
-                    ? {
-                        delay: 5000,
-                        disableOnInteraction: false,
-                      }
-                    : false
-                }
-                onSwiper={setSwiper}
-                onSlideChange={(instance) => setActiveIndex(instance.realIndex)}
-              >
-                {heroSlides.map((slide) => (
-                  <SwiperSlide key={slide.id}>
-                    <HeroSlide slide={slide} />
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-
-              {heroSlides.length > 1 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => swiper?.slidePrev()}
-                    className="absolute left-[1.2rem] top-1/2 z-10 hidden h-[4.2rem] w-[4.2rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-white/12 text-white backdrop-blur-[12px] transition-colors duration-200 hover:bg-white/20 md:inline-flex"
-                    aria-label="Previous slide"
-                  >
-                    <ChevronLeft className="h-[2rem] w-[2rem]" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => swiper?.slideNext()}
-                    className="absolute right-[1.2rem] top-1/2 z-10 hidden h-[4.2rem] w-[4.2rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-white/12 text-white backdrop-blur-[12px] transition-colors duration-200 hover:bg-white/20 md:inline-flex"
-                    aria-label="Next slide"
-                  >
-                    <ChevronRight className="h-[2rem] w-[2rem]" />
-                  </button>
-
-                  <div className="absolute bottom-[1.6rem] left-1/2 z-10 flex -translate-x-1/2 gap-[0.8rem]">
-                    {heroSlides.map((slide, index) => (
-                      <button
-                        key={slide.id}
-                        type="button"
-                        onClick={() => swiper?.slideToLoop(index)}
-                        className={`h-[0.9rem] rounded-full transition-all duration-200 ${
-                          index === activeIndex
-                            ? "w-[3rem] bg-[var(--color-primary)]"
-                            : "w-[0.9rem] bg-white/55"
-                        }`}
-                        aria-label={`Go to slide ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              ) : null}
-            </>
+            <HeroCarousel
+              items={heroSlides}
+              renderSlide={(slide) => <HeroSlide slide={slide} />}
+            />
           ) : (
             <section className="flex h-[34rem] items-end overflow-hidden rounded-[2.8rem] bg-[linear-gradient(135deg,#171717_0%,#7b3fe4_48%,#f84464_100%)] p-[2.4rem] text-[var(--color-text-light)] md:h-[44rem] md:p-[4rem]">
               <div>

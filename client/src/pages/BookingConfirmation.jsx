@@ -1,25 +1,104 @@
-﻿import { Link, useLocation, useParams } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { QRCodeCanvas } from "qrcode.react";
-import { CalendarDays, CheckCircle2, Download, MapPin, Share2, Ticket } from "lucide-react";
+import { CalendarDays, CheckCircle2, Download, MapPin, Share2, Tag, Ticket } from "lucide-react";
+import { toPng } from "html-to-image";
+import { toast } from "react-toastify";
+import { BrandLogo } from "../components/BrandLogo.jsx";
 import { getEventById } from "../utils/eventApi.js";
 
 export const BookingConfirmation = () => {
   const { id } = useParams();
   const location = useLocation();
-  const bookingState = location.state || {};
+  const ticketRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const bookingState = useMemo(() => {
+    if (location.state) {
+      return location.state;
+    }
+
+    try {
+      const storedValue = sessionStorage.getItem(`ticketHubConfirmation:${id}`);
+      return storedValue ? JSON.parse(storedValue) : {};
+    } catch {
+      return {};
+    }
+  }, [id, location.state]);
   const selectedItems = bookingState.items || [];
   const summary = bookingState.summary || [];
-  const total = bookingState.total || 0;
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
   const paymentMethod = bookingState.paymentMethod || "upi";
-  const bookingId = `TH${Date.now().toString(36).toUpperCase()}`;
+  const booking = bookingState.booking || null;
+  const pricing = bookingState.pricing || {
+    cartAmount: booking?.originalAmount || bookingState.total || 0,
+    discountAmount: booking?.discountAmount || 0,
+    finalAmount: booking?.finalAmount || bookingState.total || 0,
+  };
+  const bookingId = booking?.bookingId || "";
+  const qrCodeDataUrl = booking?.qrCodeDataUrl || "";
+  const ticketUrl = booking?.qrPayload || (bookingId ? `${window.location.origin}/ticket/${bookingId}` : window.location.href);
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", id],
     queryFn: () => getEventById(id),
     enabled: Boolean(id),
   });
+
+  const handleDownloadTicket = async () => {
+    if (!ticketRef.current) return;
+    if (!bookingId) {
+      toast.error("Booking id is missing. Please retry from Payment.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const dataUrl = await toPng(ticketRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `TicketHub-${bookingId}.png`;
+      link.click();
+    } catch (error) {
+      console.error("ticket-download-failed", error);
+      toast.error("Unable to download ticket right now");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!bookingId) {
+      toast.error("Booking id is missing. Please retry from Payment.");
+      return;
+    }
+
+    const shareText = `TicketHub Booking ${bookingId} for ${event?.title || "your event"}`;
+    const shareUrl = ticketUrl;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "TicketHub Ticket",
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      }
+    } catch {
+      // If user cancels native share, fall back to copy.
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      toast.success("Ticket link copied");
+    } catch {
+      toast.success("Copy this link from the address bar");
+    }
+  };
 
   return (
     <main className="py-[3rem]">
@@ -32,11 +111,23 @@ export const BookingConfirmation = () => {
             Booking Confirmed
           </h1>
           <p className="mt-[0.8rem] text-[1.4rem] text-[var(--color-text-secondary)]">
-            Booking ID: <span className="font-bold text-[var(--color-text-primary)]">{bookingId}</span>
+            Booking ID:{" "}
+            <span className="font-bold text-[var(--color-text-primary)]">
+              {bookingId || "Unavailable"}
+            </span>
           </p>
         </div>
 
-        <article className="overflow-hidden rounded-[2.4rem] border border-[rgba(28,28,28,0.08)] bg-white shadow-[var(--shadow-soft)]">
+        <article
+          ref={ticketRef}
+          className="overflow-hidden rounded-[2.4rem] border border-[rgba(248,68,100,0.14)] bg-white shadow-[0_18px_36px_rgba(28,28,28,0.08)]"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-[0.8rem] border-b border-[rgba(248,68,100,0.16)] bg-[linear-gradient(90deg,rgba(248,68,100,0.08)_0%,rgba(248,68,100,0.02)_100%)] px-[1.8rem] py-[1.2rem]">
+            <BrandLogo size="sm" />
+            <p className="inline-flex h-[2.6rem] items-center rounded-full border border-[rgba(248,68,100,0.2)] bg-white px-[1rem] text-[1.05rem] font-extrabold tracking-[0.08em] text-[var(--color-text-secondary)]">
+              ADMIT ONE
+            </p>
+          </div>
           {event ? (
             <div className="relative h-[20rem] overflow-hidden">
               <img src={event.poster || "/fallback.jpg"} alt={event.title} className="h-full w-full object-cover" />
@@ -97,6 +188,28 @@ export const BookingConfirmation = () => {
                     {paymentMethod}
                   </p>
                 </div>
+                {booking?.paymentDetails ? (
+                  <div>
+                    <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Payment Ref</p>
+                    <p className="text-[1.4rem] font-bold text-[var(--color-text-primary)]">
+                      {booking.paymentDetails.upiId ||
+                        (booking.paymentDetails.cardNumberLast4
+                          ? `**** ${booking.paymentDetails.cardNumberLast4}`
+                          : booking.paymentDetails.walletMobile
+                            ? `+91 ${booking.paymentDetails.walletMobile}`
+                            : booking.paymentDetails.bankName || "Captured")}
+                    </p>
+                  </div>
+                ) : null}
+                {booking?.couponCode ? (
+                  <div className="flex items-start gap-[0.8rem]">
+                    <Tag className="mt-[0.2rem] h-[1.6rem] w-[1.6rem] text-[var(--color-primary)]" />
+                    <div>
+                      <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Coupon Applied</p>
+                      <p className="text-[1.4rem] font-bold text-[var(--color-text-primary)]">{booking.couponCode}</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -121,30 +234,48 @@ export const BookingConfirmation = () => {
               </div>
             ) : null}
 
+            <div className="mt-[1.8rem] rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-[rgba(28,28,28,0.02)] p-[1.4rem] text-[1.3rem]">
+              <div className="flex items-center justify-between gap-[1rem] text-[var(--color-text-secondary)]">
+                <span>Subtotal</span>
+                <span className="font-bold text-[var(--color-text-primary)]">{currency}{Number(pricing.cartAmount || 0).toLocaleString("en-IN")}</span>
+              </div>
+              {pricing.discountAmount ? (
+                <div className="mt-[0.8rem] flex items-center justify-between gap-[1rem] text-[var(--color-primary)]">
+                  <span>Discount{booking?.couponCode ? ` (${booking.couponCode})` : ""}</span>
+                  <span className="font-bold">-{currency}{Number(pricing.discountAmount || 0).toLocaleString("en-IN")}</span>
+                </div>
+              ) : null}
+            </div>
+
             <div className="my-[1.8rem] border-t border-dashed border-[rgba(28,28,28,0.14)]" />
 
             <div className="flex flex-col items-center gap-[1.2rem] py-[1rem]">
               <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.2rem]">
-                <QRCodeCanvas
-                  value={`${bookingId}:${id}:${selectedItems.join(",")}:${total}`}
-                  size={160}
-                  bgColor="#ffffff"
-                  fgColor="#1c1c1c"
-                  includeMargin
-                />
+                {qrCodeDataUrl ? (
+                  <img src={qrCodeDataUrl} alt={`Ticket QR ${bookingId}`} className="h-[16rem] w-[16rem] object-contain" />
+                ) : (
+                  <p className="px-[1rem] py-[6rem] text-[1.2rem] text-[var(--color-text-secondary)]">QR is being prepared</p>
+                )}
               </div>
               <p className="text-[1.2rem] text-[var(--color-text-secondary)]">
-                Show this QR code at the venue entrance.
+                Scan opens your live ticket at entry.
               </p>
             </div>
 
             <div className="my-[1.8rem] border-t border-dashed border-[rgba(28,28,28,0.14)]" />
 
             <div className="flex items-center justify-between">
-              <span className="text-[1.4rem] text-[var(--color-text-secondary)]">Total Paid</span>
+              <div>
+                <span className="text-[1.4rem] text-[var(--color-text-secondary)]">Total Paid</span>
+                {pricing.discountAmount ? (
+                  <p className="mt-[0.35rem] text-[1.2rem] font-bold text-[#15803d]">
+                    You saved {currency}{Number(pricing.discountAmount || 0).toLocaleString("en-IN")}
+                  </p>
+                ) : null}
+              </div>
               <span className="text-[2.3rem] font-extrabold tracking-[-0.04em] text-[var(--color-text-primary)]">
                 {currency}
-                {Number(total).toLocaleString("en-IN")}
+                {Number(pricing.finalAmount || 0).toLocaleString("en-IN")}
               </span>
             </div>
           </div>
@@ -153,13 +284,16 @@ export const BookingConfirmation = () => {
         <div className="flex flex-col gap-[1rem] sm:flex-row">
           <button
             type="button"
+            onClick={handleDownloadTicket}
+            disabled={isDownloading}
             className="inline-flex h-[4.8rem] flex-1 items-center justify-center gap-[0.8rem] rounded-[1.4rem] bg-[var(--color-primary)] text-[1.5rem] font-bold text-[var(--color-text-light)]"
           >
             <Download className="h-[1.8rem] w-[1.8rem]" />
-            Download Ticket
+            {isDownloading ? "Preparing..." : "Download Ticket"}
           </button>
           <button
             type="button"
+            onClick={handleShare}
             className="inline-flex h-[4.8rem] flex-1 items-center justify-center gap-[0.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white text-[1.5rem] font-bold text-[var(--color-text-primary)]"
           >
             <Share2 className="h-[1.8rem] w-[1.8rem]" />

@@ -18,6 +18,10 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" });
     }
 
+    if (String(user.status || "active").toLowerCase() !== "active") {
+      return res.status(403).json({ message: "Your account is blocked. Please contact support." });
+    }
+
     req.user = user;
     req.token = token;
     next();

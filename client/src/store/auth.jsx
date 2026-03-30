@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
         },
       });
       setUser(response.data.user);
-    } catch (error) {
+    } catch {
       clearAuth();
     } finally {
       setIsLoading(false);

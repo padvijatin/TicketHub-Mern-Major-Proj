@@ -1,8 +1,9 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const allowedRoles = ["user", "organizer", "admin"];
+const allowedStatuses = ["active", "blocked"];
 
 const userSchema = new mongoose.Schema(
   {
@@ -32,6 +33,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: allowedRoles,
       default: "user",
+      trim: true,
+      lowercase: true,
+    },
+    status: {
+      type: String,
+      enum: allowedStatuses,
+      default: "active",
       trim: true,
       lowercase: true,
     },
@@ -75,14 +83,24 @@ userSchema.methods.getRole = function getRole() {
   return "user";
 };
 
+userSchema.methods.getStatus = function getStatus() {
+  if (allowedStatuses.includes(this.status)) {
+    return this.status;
+  }
+
+  return "active";
+};
+
 userSchema.methods.generateToken = function generateToken() {
   const role = this.getRole();
+  const status = this.getStatus();
 
   return jwt.sign(
     {
       userId: this._id.toString(),
       email: this.email,
       role,
+      status,
     },
     process.env.JWT_SECRET,
     {

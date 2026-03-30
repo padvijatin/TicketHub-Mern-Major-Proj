@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { Building2, ChevronDown, MapPin, Navigation, Search, X } from "lucide-react";
-import { useLocationStore } from "../store/location.jsx";
+import { matchesLocationSearch, useLocationStore } from "../store/location.jsx";
 
 export const LocationPicker = ({ mobile = false, onSelect }) => {
   const {
@@ -17,17 +17,7 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
   const [searchValue, setSearchValue] = useState("");
 
   const filteredCities = useMemo(() => {
-    const normalizedSearch = searchValue.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return allCities;
-    }
-
-    return allCities.filter(
-      (city) =>
-        city.name.toLowerCase().includes(normalizedSearch) ||
-        city.state.toLowerCase().includes(normalizedSearch)
-    );
+    return allCities.filter((city) => matchesLocationSearch(city, searchValue, allCities));
   }, [allCities, searchValue]);
 
   const handleSelectCity = (city) => {
@@ -49,7 +39,7 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
 
   const buttonClassName = mobile
     ? "flex w-full items-center justify-between rounded-[1.4rem] border border-[rgba(248,68,100,0.12)] bg-[var(--color-bg-card)] px-[1.4rem] py-[1.2rem] text-left shadow-[var(--shadow-soft)]"
-    : "inline-flex min-w-[14rem] max-w-[18rem] items-center gap-[0.55rem] overflow-hidden bg-transparent px-0 py-0 text-left";
+    : "inline-flex min-w-[14rem] max-w-[20rem] items-center gap-[0.55rem] overflow-hidden bg-transparent px-0 py-0 text-left";
 
   const modal = (
     <AnimatePresence>
@@ -166,10 +156,10 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
           <MapPin className="h-[1.8rem] w-[1.8rem]" strokeWidth={2.2} />
         </span>
         <span className="min-w-0 flex-1 overflow-hidden">
-          <span className="block truncate text-[1.32rem] font-extrabold leading-[1.1] text-[var(--color-text-primary)]">
+          <span className="block truncate text-[1.26rem] font-extrabold leading-[1.1] text-[var(--color-text-primary)]">
             {selectedLocation.name}
           </span>
-          <span className="mt-[0.15rem] block truncate text-[0.98rem] leading-[1.2] text-[var(--color-text-secondary)]">
+          <span className="mt-[0.15rem] block truncate text-[0.94rem] leading-[1.2] text-[var(--color-text-secondary)]">
             {selectedLocation.state}
           </span>
         </span>

@@ -5,8 +5,11 @@ const dotenv = require("dotenv");
 const path = require("path");
 const connectDb = require("./utils/db");
 const authRoute = require("./router/auth-router");
+const bookingRoute = require("./router/booking-router");
+const couponRoute = require("./router/coupon-router");
 const eventRoute = require("./router/event-router");
 const wishlistRoute = require("./router/wishlist-router");
+const adminRoute = require("./router/admin-router");
 const contactRoute = require("./router/contact-router");
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
@@ -47,15 +50,38 @@ app.use(
   })
 );
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoute);
+app.use("/api/bookings", bookingRoute);
+app.use("/api/coupons", couponRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/wishlist", wishlistRoute);
+app.use("/api/admin", adminRoute);
 app.use("/api/contact", contactRoute);
 
 app.get("/", (req, res) => {
   res.status(200).json({
     message: "TicketHub server is running",
   });
+});
+
+app.use((error, _req, res, next) => {
+  if (!error) {
+    next();
+    return;
+  }
+
+  if (error?.message === "Only image uploads are allowed") {
+    res.status(400).json({ message: error.message });
+    return;
+  }
+
+  if (error?.name === "MulterError") {
+    res.status(400).json({ message: error.message || "Unable to upload image right now" });
+    return;
+  }
+
+  next(error);
 });
 
 const startServer = async () => {

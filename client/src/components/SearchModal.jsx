@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { getEvents } from "../utils/eventApi.js";
 import { SearchList } from "./SearchList.jsx";
@@ -34,7 +34,7 @@ export const SearchModal = ({ isOpen, onClose }) => {
         if (!ignore) {
           setItems(eventData);
         }
-      } catch (error) {
+      } catch {
         if (!ignore) {
           setItems([]);
         }

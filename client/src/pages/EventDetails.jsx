@@ -11,6 +11,7 @@ import {
   Share2,
   Users,
 } from "lucide-react";
+import { MapComponent } from "../components/MapComponent.jsx";
 import { Rating } from "../components/Rating.jsx";
 import { useAuth } from "../store/auth.jsx";
 import { useWishlist } from "../store/wishlist.jsx";
@@ -353,9 +354,18 @@ export const EventDetails = () => {
                 Venue
               </h2>
               <p className="mt-[1.2rem] text-[1.55rem] text-[var(--color-text-secondary)]">
-                {event.venue}, {event.city}
+                {event.address ? `${event.address}, ` : ""}
+                {event.city}
               </p>
-              <div className="mt-[1.6rem] aspect-[16/6] rounded-[2rem] bg-[linear-gradient(180deg,#eceff3_0%,#e2e8f0_100%)]" />
+              <div className="mt-[1.6rem]">
+                <MapComponent
+                  latitude={event.latitude}
+                  longitude={event.longitude}
+                  venueName={event.venue}
+                  address={event.address}
+                  city={event.city}
+                />
+              </div>
             </section>
 
             <section className="rounded-[2.4rem] border border-[rgba(28,28,28,0.06)] bg-white p-[2rem] shadow-[var(--shadow-soft)]">

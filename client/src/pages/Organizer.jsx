@@ -21,7 +21,7 @@ export const Organizer = () => {
       case "coupons":
         return <CouponManagement />;
       case "bookings":
-        return <BookingManagement />;
+        return <BookingManagement role="organizer" />;
       default:
         return <DashboardOverview role="organizer" />;
     }
@@ -74,3 +74,4 @@ export const Organizer = () => {
     </div>
   );
 };
+

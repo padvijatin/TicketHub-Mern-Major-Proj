@@ -61,3 +61,17 @@
     list-style: none;
   }
 }
+
+
+@keyframes profileSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-0.8rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+

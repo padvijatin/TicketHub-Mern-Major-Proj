@@ -12,14 +12,31 @@ const normalizeRole = (value = "") => {
   return "user";
 };
 
+const normalizeStatus = (value = "") => {
+  const normalizedValue = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (["active", "blocked"].includes(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return "active";
+};
+
 const serializeUser = (user) => {
   const role = typeof user.getRole === "function" ? user.getRole() : normalizeRole(user.role);
+  const status = typeof user.getStatus === "function" ? user.getStatus() : normalizeStatus(user.status);
 
   return {
+    id: user._id?.toString?.() || "",
     username: user.username,
     email: user.email,
     phone: user.phone,
     role,
+    status,
+    createdAt: user.createdAt || null,
+    updatedAt: user.updatedAt || null,
   };
 };
 
@@ -39,6 +56,7 @@ const register = async (req, res) => {
       phone,
       password,
       role: "user",
+      status: "active",
     });
 
     return res.status(201).json({
@@ -60,6 +78,10 @@ const login = async (req, res) => {
 
     if (!userExist) {
       return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    if (normalizeStatus(userExist.status) !== "active") {
+      return res.status(403).json({ message: "Your account is blocked. Please contact support." });
     }
 
     const isPasswordValid = await userExist.comparePassword(password);
@@ -92,4 +114,7 @@ module.exports = {
   login,
   user,
   logout,
+  serializeUser,
+  normalizeRole,
+  normalizeStatus,
 };

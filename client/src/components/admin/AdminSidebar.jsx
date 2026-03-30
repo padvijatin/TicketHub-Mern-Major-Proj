@@ -6,6 +6,7 @@ import {
   Tag,
   Users,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const adminTabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -23,6 +24,7 @@ const organizerTabs = [
 ];
 
 const AdminSidebar = ({ activeTab, onTabChange, role }) => {
+  const navigate = useNavigate();
   const tabs = role === "admin" ? adminTabs : organizerTabs;
 
   return (
@@ -61,6 +63,7 @@ const AdminSidebar = ({ activeTab, onTabChange, role }) => {
       <div className="border-t border-[rgba(28,28,28,0.08)] p-[1.2rem]">
         <button
           type="button"
+          onClick={() => navigate("/logout")}
           className="flex w-full items-center gap-[1.1rem] rounded-[1.2rem] px-[1.4rem] py-[1.25rem] text-left text-[1.4rem] font-semibold text-[var(--color-error)] transition-colors hover:bg-[rgba(239,68,68,0.08)]"
         >
           <LogOut className="h-[1.7rem] w-[1.7rem]" />

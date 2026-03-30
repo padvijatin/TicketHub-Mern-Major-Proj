@@ -27,7 +27,7 @@ export const Events = () => {
         if (!ignore) {
           setEvents(eventData);
         }
-      } catch (fetchError) {
+      } catch {
         if (!ignore) {
           setError("Unable to load events right now.");
         }
@@ -76,10 +76,10 @@ export const Events = () => {
             Events
           </span>
           <h1 className="mt-[1.4rem] max-w-[12ch] text-[clamp(3rem,4.4vw,5rem)] leading-[1.05] font-extrabold tracking-[-0.04em]">
-            Concerts, comedy, and city plans from your real collection.
+            Concerts, comedy, and city plans worth stepping out for.
           </h1>
           <p className="mt-[1.2rem] max-w-[62rem] text-[1.6rem] leading-[1.7] text-[var(--color-text-secondary)]">
-            This page now uses the existing MongoDB events collection instead of client-side examples.
+            Discover live shows, local experiences, and weekend plans in one place.
           </p>
         </div>
 

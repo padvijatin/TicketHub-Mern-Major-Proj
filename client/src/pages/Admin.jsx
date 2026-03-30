@@ -24,7 +24,7 @@ export const Admin = () => {
       case "coupons":
         return <CouponManagement />;
       case "bookings":
-        return <BookingManagement />;
+        return <BookingManagement role="admin" />;
       default:
         return <DashboardOverview role="admin" />;
     }
@@ -77,3 +77,4 @@ export const Admin = () => {
     </div>
   );
 };
+

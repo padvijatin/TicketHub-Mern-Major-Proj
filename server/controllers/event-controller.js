@@ -363,6 +363,10 @@ const serializeEvent = (event, interestedCountMap = {}, reviewSummaryMap = {}) =
     date: event.date instanceof Date ? event.date.toISOString() : event.date,
     startTime: event.startTime || formatStartTime(event.date),
     city: event.city,
+    state: event.state || "",
+    address: event.address || "",
+    latitude: event.latitude ?? null,
+    longitude: event.longitude ?? null,
     venue: event.venue,
     price: getStartingPrice(event.price, seatZones),
     seatZones,
@@ -464,54 +468,6 @@ const getEventById = async (req, res) => {
   }
 };
 
-const bookEvent = async (req, res) => {
-  try {
-    const requestedSeats = [...new Set((Array.isArray(req.body?.seats) ? req.body.seats : []).map((seat) => String(seat).trim()).filter(Boolean))];
-
-    if (!requestedSeats.length) {
-      return res.status(400).json({ message: "Please select at least one seat" });
-    }
-
-    const event = await Event.findById(req.params.id);
-
-    if (!event || !event.isActive || event.status !== "approved") {
-      return res.status(404).json({ message: "Event not found" });
-    }
-
-    const previousState = event.toObject({ depopulate: true });
-    const { seatZones, bookedSeats } = syncEventSeatState(event);
-    const validSeatIds = new Set(seatZones.flatMap((zone) => buildZoneSeatIds(zone)));
-    const invalidSeats = requestedSeats.filter((seat) => !validSeatIds.has(seat));
-
-    if (invalidSeats.length) {
-      return res.status(400).json({ message: "Some selected seats are invalid", invalidSeats });
-    }
-
-    const alreadyBookedSeats = requestedSeats.filter((seat) => bookedSeats.includes(seat));
-
-    if (alreadyBookedSeats.length) {
-      return res.status(409).json({ message: "Some selected seats are already booked", seats: alreadyBookedSeats });
-    }
-
-    event.bookedSeats = [...bookedSeats, ...requestedSeats];
-    const syncedState = syncEventSeatState(event);
-
-    if (hasSeatStateChanged(previousState, syncedState)) {
-      await event.save();
-    }
-
-    return res.status(200).json({
-      message: "Seats booked successfully",
-      bookedSeats: requestedSeats,
-      totalSeats: syncedState.totalSeats,
-      availableSeats: syncedState.availableSeats,
-      event: serializeEvent(event.toObject()),
-    });
-  } catch (error) {
-    return res.status(500).json({ message: "Unable to complete booking right now" });
-  }
-};
-
 const rateEvent = async (req, res) => {
   try {
     const ratingValue = Number(req.body?.value);
@@ -550,10 +506,10 @@ const rateEvent = async (req, res) => {
 module.exports = {
   getEvents,
   getEventById,
-  bookEvent,
   rateEvent,
   serializeEvent,
   buildEventQuery,
   syncEventSeatState,
 };
+
 

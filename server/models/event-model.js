@@ -51,6 +51,12 @@ const seatZoneSchema = new mongoose.Schema(
 
 const eventSchema = new mongoose.Schema(
   {
+    organizer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     title: {
       type: String,
       required: true,
@@ -80,10 +86,28 @@ const eventSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     city: {
       type: String,
       required: true,
       trim: true,
+    },
+    state: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
     },
     date: {
       type: Date,
