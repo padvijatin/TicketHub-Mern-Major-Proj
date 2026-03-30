@@ -32,85 +32,112 @@ const otherCities = [
   { name: "Aurangabad", state: "Maharashtra" },
   { name: "Bareilly", state: "Uttar Pradesh" },
   { name: "Belgaum", state: "Karnataka" },
+  { name: "Bhilai", state: "Chhattisgarh" },
+  { name: "Bhilwara", state: "Rajasthan" },
+  { name: "Bhiwandi", state: "Maharashtra" },
   { name: "Bhavnagar", state: "Gujarat" },
   { name: "Bhubaneswar", state: "Odisha" },
   { name: "Bhuj", state: "Gujarat" },
   { name: "Bhopal", state: "Madhya Pradesh" },
   { name: "Bikaner", state: "Rajasthan" },
   { name: "Bilaspur", state: "Chhattisgarh" },
+  { name: "Bokaro", state: "Jharkhand" },
   { name: "Calicut", state: "Kerala" },
   { name: "Chandigarh", state: "Chandigarh" },
   { name: "Coimbatore", state: "Tamil Nadu" },
   { name: "Cuttack", state: "Odisha" },
+  { name: "Darbhanga", state: "Bihar" },
   { name: "Dehradun", state: "Uttarakhand" },
   { name: "Dhanbad", state: "Jharkhand" },
+  { name: "Dharwad", state: "Karnataka" },
+  { name: "Durg", state: "Chhattisgarh" },
+  { name: "Durgapur", state: "West Bengal" },
+  { name: "Erode", state: "Tamil Nadu" },
   { name: "Faridabad", state: "Haryana" },
   { name: "Gandhinagar", state: "Gujarat" },
   { name: "Ghaziabad", state: "Uttar Pradesh" },
   { name: "Goa", state: "Goa" },
+  { name: "Gorakhpur", state: "Uttar Pradesh" },
   { name: "Guntur", state: "Andhra Pradesh" },
   { name: "Gurgaon", state: "Haryana" },
   { name: "Guwahati", state: "Assam" },
   { name: "Gwalior", state: "Madhya Pradesh" },
+  { name: "Hisar", state: "Haryana" },
   { name: "Hubli", state: "Karnataka" },
+  { name: "Imphal", state: "Manipur" },
   { name: "Indore", state: "Madhya Pradesh" },
   { name: "Jabalpur", state: "Madhya Pradesh" },
   { name: "Jaipur", state: "Rajasthan" },
   { name: "Jalandhar", state: "Punjab" },
+  { name: "Jalgaon", state: "Maharashtra" },
+  { name: "Jammu", state: "Jammu and Kashmir" },
   { name: "Jamnagar", state: "Gujarat" },
   { name: "Jamshedpur", state: "Jharkhand" },
+  { name: "Jhansi", state: "Uttar Pradesh" },
   { name: "Jodhpur", state: "Rajasthan" },
+  { name: "Junagadh", state: "Gujarat" },
+  { name: "Kakinada", state: "Andhra Pradesh" },
   { name: "Kanpur", state: "Uttar Pradesh" },
+  { name: "Karimnagar", state: "Telangana" },
+  { name: "Karnal", state: "Haryana" },
   { name: "Kochi", state: "Kerala" },
   { name: "Kolhapur", state: "Maharashtra" },
+  { name: "Kollam", state: "Kerala" },
   { name: "Kota", state: "Rajasthan" },
+  { name: "Kozhikode", state: "Kerala" },
+  { name: "Kurnool", state: "Andhra Pradesh" },
+  { name: "Latur", state: "Maharashtra" },
+  { name: "Ludhiana", state: "Punjab" },
   { name: "Lucknow", state: "Uttar Pradesh" },
   { name: "Madurai", state: "Tamil Nadu" },
   { name: "Mangalore", state: "Karnataka" },
   { name: "Meerut", state: "Uttar Pradesh" },
   { name: "Mysore", state: "Karnataka" },
+  { name: "Moradabad", state: "Uttar Pradesh" },
+  { name: "Muzaffarpur", state: "Bihar" },
+  { name: "Nadiad", state: "Gujarat" },
   { name: "Nagpur", state: "Maharashtra" },
+  { name: "Nanded", state: "Maharashtra" },
   { name: "Nashik", state: "Maharashtra" },
+  { name: "Nellore", state: "Andhra Pradesh" },
   { name: "Noida", state: "Uttar Pradesh" },
+  { name: "Patiala", state: "Punjab" },
   { name: "Patna", state: "Bihar" },
+  { name: "Pondicherry", state: "Puducherry" },
+  { name: "Prayagraj", state: "Uttar Pradesh" },
   { name: "Raipur", state: "Chhattisgarh" },
+  { name: "Rajahmundry", state: "Andhra Pradesh" },
   { name: "Rajkot", state: "Gujarat" },
   { name: "Ranchi", state: "Jharkhand" },
+  { name: "Rohtak", state: "Haryana" },
+  { name: "Rourkela", state: "Odisha" },
   { name: "Salem", state: "Tamil Nadu" },
+  { name: "Sangli", state: "Maharashtra" },
   { name: "Siliguri", state: "West Bengal" },
+  { name: "Solapur", state: "Maharashtra" },
+  { name: "Srinagar", state: "Jammu and Kashmir" },
   { name: "Surat", state: "Gujarat" },
   { name: "Thane", state: "Maharashtra" },
   { name: "Thiruvananthapuram", state: "Kerala" },
+  { name: "Thrissur", state: "Kerala" },
   { name: "Tiruchirappalli", state: "Tamil Nadu" },
+  { name: "Tirunelveli", state: "Tamil Nadu" },
+  { name: "Tiruppur", state: "Tamil Nadu" },
   { name: "Udaipur", state: "Rajasthan" },
+  { name: "Ujjain", state: "Madhya Pradesh" },
   { name: "Vadodara", state: "Gujarat" },
+  { name: "Valsad", state: "Gujarat" },
   { name: "Varanasi", state: "Uttar Pradesh" },
+  { name: "Vasai", state: "Maharashtra" },
+  { name: "Vellore", state: "Tamil Nadu" },
   { name: "Vijayawada", state: "Andhra Pradesh" },
   { name: "Visakhapatnam", state: "Andhra Pradesh" },
+  { name: "Vyara", state: "Gujarat" },
   { name: "Warangal", state: "Telangana" },
+  { name: "Songadh", state: "Gujarat" },
+  { name: "Nizar", state: "Gujarat" },
+  { name: "Nandurbar", state: "Maharashtra" },
 ];
-
-const cityAliases = {
-  mumbai: ["bombay", "navi mumbai", "greater mumbai", "mumbai suburban"],
-  bangalore: ["bengaluru", "bangalore urban", "bengaluru urban"],
-  delhi: ["new delhi", "delhi ncr", "national capital territory of delhi"],
-  hyderabad: ["hyderabad district"],
-  ahmedabad: ["ahmadabad"],
-  chennai: ["madras"],
-  kolkata: ["calcutta"],
-  surat: ["surat city"],
-  pune: ["poona", "pimpri chinchwad", "pimpri-chinchwad"],
-  gurgaon: ["gurugram"],
-  mysore: ["mysuru"],
-  kochi: ["cochin", "ernakulam"],
-  calicut: ["kozhikode"],
-  thiruvananthapuram: ["trivandrum"],
-  vadodara: ["baroda"],
-  prayagraj: ["allahabad"],
-  visakhapatnam: ["vizag", "visakhapatnam district"],
-  noida: ["gautam buddha nagar"],
-  goa: ["panaji", "panaji", "north goa", "south goa", "margao", "madgaon"],
-};
 
 const normalizeCity = (value = "") =>
   String(value)
@@ -121,59 +148,14 @@ const normalizeCity = (value = "") =>
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ");
 
-const buildCanonicalCityMap = (cities = []) => {
-  const canonicalMap = new Map();
-
-  cities.forEach((city) => {
-    const normalizedName = normalizeCity(city.name);
-
-    if (!normalizedName) {
-      return;
-    }
-
-    canonicalMap.set(normalizedName, city.name);
-
-    (cityAliases[normalizedName] || []).forEach((alias) => {
-      canonicalMap.set(normalizeCity(alias), city.name);
-    });
-  });
-
-  Object.entries(cityAliases).forEach(([canonicalName, aliases]) => {
-    if (!canonicalMap.has(canonicalName)) {
-      canonicalMap.set(canonicalName, canonicalName);
-    }
-
-    aliases.forEach((alias) => {
-      canonicalMap.set(normalizeCity(alias), canonicalMap.get(canonicalName) || canonicalName);
-    });
-  });
-
-  return canonicalMap;
-};
-
-const getCanonicalCityName = (value, canonicalMap) => canonicalMap.get(normalizeCity(value)) || "";
-
-const buildLocationSearchTokens = (cityName, canonicalMap) => {
-  const canonicalName = getCanonicalCityName(cityName, canonicalMap) || cityName;
-  const normalizedCanonicalName = normalizeCity(canonicalName);
-  const aliasTokens = cityAliases[normalizedCanonicalName] || [];
-
-  return [...new Set([canonicalName, ...aliasTokens].map((token) => normalizeCity(token)).filter(Boolean))];
-};
-
-export const matchesLocationSearch = (city, query, availableCities = []) => {
+export const matchesLocationSearch = (city, query) => {
   const normalizedQuery = normalizeCity(query);
 
   if (!normalizedQuery) {
     return true;
   }
 
-  const canonicalMap = buildCanonicalCityMap(availableCities.length ? availableCities : [...popularCities, ...otherCities]);
-  const searchableValues = [
-    city.name,
-    city.state,
-    ...buildLocationSearchTokens(city.name, canonicalMap),
-  ]
+  const searchableValues = [city.name, city.state]
     .map((value) => normalizeCity(value))
     .filter(Boolean);
 
@@ -242,8 +224,7 @@ const detectLocationByIp = async () => {
 };
 
 const mapCityToKnownOption = (city = {}, allCities = []) => {
-  const canonicalMap = buildCanonicalCityMap(allCities);
-  const normalizedName = getCanonicalCityName(city.name, canonicalMap) || normalizeCity(city.name);
+  const normalizedName = normalizeCity(city.name);
   const knownCity = allCities.find((option) => normalizeCity(option.name) === normalizedName);
 
   return knownCity
@@ -426,29 +407,10 @@ export const filterItemsByLocation = (items = [], selectedLocation) => {
     return items;
   }
 
-  const itemCities = items
-    .map((item) => ({
-      name: item.city || "",
-      state: item.state || "",
-    }))
-    .filter((city) => city.name);
-  const canonicalMap = buildCanonicalCityMap([...popularCities, ...otherCities, ...itemCities]);
-  const selectedCity = getCanonicalCityName(selectedLocation.name, canonicalMap) || normalizeCity(selectedLocation.name);
-  const selectedTokens = buildLocationSearchTokens(selectedLocation.name, canonicalMap);
+  const selectedCity = normalizeCity(selectedLocation.name);
   const matchingItems = items.filter((item) => {
-    const cityValue = getCanonicalCityName(item.city || "", canonicalMap) || normalizeCity(item.city || "");
-
-    if (cityValue && cityValue === selectedCity) {
-      return true;
-    }
-
-    const searchableFields = [item.location, item.venue, item.address, item.city]
-      .map((value) => normalizeCity(value || ""))
-      .filter(Boolean);
-
-    return selectedTokens.some((token) =>
-      searchableFields.some((field) => field === token || field.includes(token))
-    );
+    const cityValue = normalizeCity(item.city || "");
+    return cityValue === selectedCity;
   });
 
   return matchingItems.length ? matchingItems : items;
