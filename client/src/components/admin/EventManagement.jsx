@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Eye, ImagePlus, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth.jsx";
 import {
@@ -127,6 +127,8 @@ const buildPayload = (formState, role) => ({
 
 const formInputClassName = "h-[4.6rem] rounded-[1.2rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.2rem] text-[1.35rem] outline-none";
 const formTextareaClassName = "rounded-[1.2rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.2rem] py-[1rem] text-[1.35rem] outline-none";
+const categoryChipClassName = "inline-flex rounded-full bg-[rgba(28,28,28,0.06)] px-[0.95rem] py-[0.38rem] text-[1.15rem] font-semibold text-[var(--color-text-primary)]";
+const fallbackImage = "/fallback.jpg";
 
 const EventManagement = ({ role }) => {
   const queryClient = useQueryClient();
@@ -134,6 +136,10 @@ const EventManagement = ({ role }) => {
   const [formState, setFormState] = useState(initialFormState);
   const [editingEventId, setEditingEventId] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [previewEvent, setPreviewEvent] = useState(null);
+  const [imageLoadErrors, setImageLoadErrors] = useState({});
   const { data: events = [], isLoading, isError } = useQuery({
     queryKey: ["admin-events", authorizationToken, role],
     queryFn: () => getAdminEvents(authorizationToken),
@@ -205,10 +211,49 @@ const EventManagement = ({ role }) => {
     [events]
   );
 
+  const categoryOptions = useMemo(() => {
+    const categories = [...new Set(sortedEvents.map((event) => String(event.category || "").trim()).filter(Boolean))];
+    return ["All", ...categories];
+  }, [sortedEvents]);
+
+  const filteredEvents = useMemo(() => {
+    const normalizedQuery = searchValue.trim().toLowerCase();
+
+    return sortedEvents.filter((event) => {
+      const matchesCategory =
+        categoryFilter === "All" ||
+        String(event.category || "").trim().toLowerCase() === categoryFilter.toLowerCase();
+
+      const matchesQuery =
+        !normalizedQuery ||
+        [
+          event.title,
+          event.category,
+          event.venue,
+          event.city,
+          event.state,
+          event.organizer?.username,
+          event.organizer?.email,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+
+      return matchesCategory && matchesQuery;
+    });
+  }, [categoryFilter, searchValue, sortedEvents]);
+
   const handleEdit = (event) => {
     setEditingEventId(event.id);
     setFormState(eventToFormState(event));
     setIsFormOpen(true);
+  };
+
+  const getPosterSrc = (event) => {
+    if (!event) {
+      return fallbackImage;
+    }
+
+    return imageLoadErrors[event.id] ? fallbackImage : event.poster || fallbackImage;
   };
 
   const handleSubmit = (event) => {
@@ -225,22 +270,61 @@ const EventManagement = ({ role }) => {
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const heading = role === "admin" ? "Event Management" : "My Events";
-  const subheading = role === "admin"
-    ? "Create, edit, review, and archive live event listings with full collection fields."
-    : "Create and manage your event submissions with posters, seat layouts, and location details.";
+
+  const formatEventDate = (value) => {
+    if (!value) return "-";
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return "-";
+
+    return parsedDate.toLocaleString("en-IN", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <div className="space-y-[2rem]">
       <div>
-        <h1 className="text-[2.6rem] font-extrabold text-[var(--color-text-primary)]">{heading}</h1>
-        <p className="mt-[0.5rem] text-[1.35rem] text-[var(--color-text-secondary)]">{subheading}</p>
+        <h1 className="text-[2.8rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">{heading}</h1>
+        <p className="mt-[0.45rem] text-[1.45rem] text-[var(--color-text-secondary)]">
+          {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+        </p>
       </div>
 
-      <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
-        <div className="mb-[1.6rem] flex items-center justify-between gap-[1rem]">
-          <h2 className="text-[1.7rem] font-bold text-[var(--color-text-primary)]">
-            {role === "admin" ? "All Events" : "Organizer Events"}
-          </h2>
+      <div className="space-y-[1.6rem]">
+        <div className="flex flex-wrap items-center justify-between gap-[1rem]">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[0.8rem]">
+            <label className="relative min-w-[28rem] flex-1 max-w-[46rem]">
+              <Search className="pointer-events-none absolute left-[1.5rem] top-1/2 h-[1.8rem] w-[1.8rem] -translate-y-1/2 text-[var(--color-text-secondary)]" />
+              <input
+                type="text"
+                value={searchValue}
+                onChange={(eventObject) => setSearchValue(eventObject.target.value)}
+                placeholder="Search events..."
+                className="h-[4.8rem] w-full rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white pl-[4.6rem] pr-[1.4rem] text-[1.45rem] text-[var(--color-text-primary)] outline-none shadow-[0_12px_30px_rgba(28,28,28,0.04)]"
+              />
+            </label>
+
+            {categoryOptions.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setCategoryFilter(category)}
+                className={`rounded-full border px-[1.4rem] py-[0.9rem] text-[1.3rem] font-semibold transition-colors duration-200 ${
+                  categoryFilter === category
+                    ? "border-[rgba(248,68,100,0.18)] bg-[var(--color-primary)] text-white"
+                    : "border-[rgba(28,28,28,0.08)] bg-white text-[var(--color-text-primary)]"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -253,15 +337,15 @@ const EventManagement = ({ role }) => {
               setFormState(initialFormState);
               setIsFormOpen(true);
             }}
-            className="inline-flex items-center gap-[0.6rem] rounded-[1.2rem] bg-[var(--color-primary)] px-[1.4rem] py-[0.85rem] text-[1.25rem] font-semibold text-white"
+            className="inline-flex items-center gap-[0.6rem] rounded-[1.45rem] bg-[var(--color-primary)] px-[1.7rem] py-[1rem] text-[1.35rem] font-semibold text-white"
           >
             {isFormOpen && !editingEventId ? <X className="h-[1.6rem] w-[1.6rem]" /> : <Plus className="h-[1.6rem] w-[1.6rem]" />}
-            {isFormOpen && !editingEventId ? "Close" : role === "admin" ? "Add Event" : "Create Event"}
+            {isFormOpen && !editingEventId ? "Close" : "Create Event"}
           </button>
         </div>
 
         {isFormOpen ? (
-          <form onSubmit={handleSubmit} className="mb-[2rem] space-y-[1.6rem] rounded-[1.6rem] bg-[rgba(28,28,28,0.02)] p-[1.6rem]">
+          <form onSubmit={handleSubmit} className="space-y-[1.6rem] rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.8rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
             <div className="grid gap-[1.2rem] md:grid-cols-2 xl:grid-cols-3">
               {[
                 ["title", "Title"],
@@ -475,82 +559,180 @@ const EventManagement = ({ role }) => {
           </form>
         ) : null}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[110rem] text-left">
-            <thead>
-              <tr className="border-b border-[rgba(28,28,28,0.08)] text-[1.2rem] uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
-                <th className="py-[1rem] font-semibold">Event</th>
-                <th className="py-[1rem] font-semibold">Category</th>
-                <th className="py-[1rem] font-semibold">City</th>
-                <th className="py-[1rem] font-semibold">Date</th>
-                <th className="py-[1rem] font-semibold">Status</th>
-                <th className="py-[1rem] font-semibold">Seats</th>
-                <th className="py-[1rem] font-semibold">Price</th>
-                {role === "admin" ? <th className="py-[1rem] font-semibold">Organizer</th> : null}
-                <th className="py-[1rem] font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={role === "admin" ? "9" : "8"} className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">Loading events...</td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td colSpan={role === "admin" ? "9" : "8"} className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">Unable to load events right now.</td>
-                </tr>
-              ) : sortedEvents.length ? (
-                sortedEvents.map((event) => (
-                  <tr key={event.id} className="border-b border-[rgba(28,28,28,0.06)] last:border-0">
-                    <td className="py-[1.3rem] text-[1.35rem] font-semibold text-[var(--color-text-primary)]">{event.title}</td>
-                    <td className="py-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)]">{event.category}</td>
-                    <td className="py-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)]">{event.city}</td>
-                    <td className="py-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)]">{event.date ? new Date(event.date).toLocaleString("en-IN") : "-"}</td>
-                    <td className="py-[1.3rem]">
-                      <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.1)] px-[1rem] py-[0.45rem] text-[1.15rem] font-semibold capitalize text-[var(--color-primary)]">
-                        {event.status}
-                      </span>
-                      {!event.isActive ? (
-                        <span className="ml-[0.6rem] inline-flex rounded-full bg-[rgba(28,28,28,0.08)] px-[1rem] py-[0.45rem] text-[1.15rem] font-semibold text-[var(--color-text-secondary)]">
-                          archived
+        {isLoading ? (
+          <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] text-[1.45rem] text-[var(--color-text-secondary)] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
+            Loading events...
+          </div>
+        ) : isError ? (
+          <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] text-[1.45rem] text-[var(--color-text-secondary)] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
+            Unable to load events right now.
+          </div>
+        ) : filteredEvents.length ? (
+          <div className="space-y-[1.6rem]">
+            {filteredEvents.map((event) => (
+              <article
+                key={event.id}
+                className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.8rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]"
+              >
+                <div className="flex flex-col gap-[1.4rem] lg:flex-row lg:items-center">
+                  <div className="flex min-w-0 flex-1 items-start gap-[1.6rem]">
+                    <div className="h-[7.8rem] w-[11.6rem] shrink-0 overflow-hidden rounded-[1.4rem] bg-[rgba(28,28,28,0.04)]">
+                      <img
+                        src={getPosterSrc(event)}
+                        alt={event.title}
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setImageLoadErrors((current) => ({
+                            ...current,
+                            [event.id]: true,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-[0.8rem]">
+                        <h2 className="text-[1.8rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
+                          {event.title}
+                        </h2>
+                        <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.12)] px-[1rem] py-[0.45rem] text-[1.15rem] font-semibold text-[var(--color-primary)]">
+                          {event.status === "approved" ? "Published" : event.status}
                         </span>
-                      ) : null}
-                    </td>
-                    <td className="py-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)]">{event.totalSeats || 0}</td>
-                    <td className="py-[1.3rem] text-[1.35rem] font-semibold text-[var(--color-text-primary)]">Rs {Number(event.price || 0).toLocaleString("en-IN")}</td>
-                    {role === "admin" ? (
-                      <td className="py-[1.3rem] text-[1.25rem] text-[var(--color-text-primary)]">{event.organizer?.username || event.organizer?.email || "-"}</td>
-                    ) : null}
-                    <td className="py-[1.3rem]">
-                      <div className="flex flex-wrap gap-[0.8rem]">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(event)}
-                          className="inline-flex items-center gap-[0.45rem] rounded-[1rem] border border-[rgba(28,28,28,0.08)] px-[1rem] py-[0.7rem] text-[1.2rem] font-semibold text-[var(--color-text-primary)]"
-                        >
-                          <Pencil className="h-[1.4rem] w-[1.4rem]" /> Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteMutation.mutate(event.id)}
-                          disabled={deleteMutation.isPending}
-                          className="inline-flex items-center gap-[0.45rem] rounded-[1rem] border border-[rgba(239,68,68,0.16)] px-[1rem] py-[0.7rem] text-[1.2rem] font-semibold text-[var(--color-error)] disabled:opacity-60"
-                        >
-                          <Trash2 className="h-[1.4rem] w-[1.4rem]" /> Archive
-                        </button>
+                        {!event.isActive ? (
+                          <span className="inline-flex rounded-full bg-[rgba(28,28,28,0.08)] px-[1rem] py-[0.45rem] text-[1.15rem] font-semibold text-[var(--color-text-secondary)]">
+                            Archived
+                          </span>
+                        ) : null}
                       </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={role === "admin" ? "9" : "8"} className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">No events found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+
+                      <p className="mt-[0.45rem] text-[1.35rem] text-[var(--color-text-secondary)]">
+                        {formatEventDate(event.date)} | {event.venue}, {event.city}
+                      </p>
+
+                      <div className="mt-[0.8rem] flex flex-wrap items-center gap-[0.8rem]">
+                        <span className={categoryChipClassName}>{event.category}</span>
+                        <span className="text-[1.25rem] text-[var(--color-text-secondary)]">
+                          Capacity: {event.totalSeats || 0}
+                        </span>
+                        {role === "admin" && event.organizer ? (
+                          <span className="text-[1.25rem] text-[var(--color-text-secondary)]">
+                            Organizer: {event.organizer.username || event.organizer.email}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-[1.2rem] lg:justify-end">
+                    <p className="text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
+                      Rs {Number(event.price || 0).toLocaleString("en-IN")}
+                    </p>
+
+                    <div className="flex items-center gap-[0.5rem]">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewEvent(event)}
+                        className="inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full text-[var(--color-text-primary)] transition-colors hover:bg-[rgba(28,28,28,0.04)]"
+                        aria-label={`View ${event.title}`}
+                      >
+                        <Eye className="h-[1.7rem] w-[1.7rem]" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(event)}
+                        className="inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full text-[var(--color-text-primary)] transition-colors hover:bg-[rgba(28,28,28,0.04)]"
+                        aria-label={`Edit ${event.title}`}
+                      >
+                        <Pencil className="h-[1.7rem] w-[1.7rem]" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => deleteMutation.mutate(event.id)}
+                        disabled={deleteMutation.isPending}
+                        className="inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full text-[var(--color-error)] transition-colors hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-60"
+                        aria-label={`Archive ${event.title}`}
+                      >
+                        <Trash2 className="h-[1.7rem] w-[1.7rem]" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] text-[1.45rem] text-[var(--color-text-secondary)] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
+            No events match this search right now.
+          </div>
+        )}
       </div>
+
+      {previewEvent ? (
+        <div className="fixed inset-0 z-[1300] bg-[rgba(28,28,28,0.35)] px-[1.6rem] py-[4rem]" onClick={() => setPreviewEvent(null)}>
+          <div className="flex min-h-full items-start justify-center">
+            <div
+              className="w-full max-w-[72rem] rounded-[2.2rem] bg-white p-[2.4rem] shadow-[0_24px_54px_rgba(28,28,28,0.18)]"
+              onClick={(eventObject) => eventObject.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-[1rem]">
+                <h3 className="text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">Event Details</h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewEvent(null)}
+                  className="inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full border border-[rgba(248,68,100,0.18)] text-[var(--color-text-secondary)] transition-all duration-150 hover:bg-[rgba(248,68,100,0.08)] hover:text-[var(--color-primary)] active:scale-[0.94] active:border-[rgba(248,68,100,0.32)]"
+                >
+                  <X className="h-[1.7rem] w-[1.7rem]" />
+                </button>
+              </div>
+
+              <div className="mt-[1.6rem] overflow-hidden rounded-[1.8rem] bg-[rgba(28,28,28,0.04)]">
+                <img
+                  src={getPosterSrc(previewEvent)}
+                  alt={previewEvent.title}
+                  className="h-[20rem] w-full object-cover"
+                  onError={() =>
+                    setImageLoadErrors((current) => ({
+                      ...current,
+                      [previewEvent.id]: true,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="mt-[1.8rem] flex flex-wrap items-center gap-[0.9rem]">
+                <h4 className="text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">{previewEvent.title}</h4>
+                <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.12)] px-[1rem] py-[0.45rem] text-[1.15rem] font-semibold text-[var(--color-primary)]">
+                  {previewEvent.status === "approved" ? "Published" : previewEvent.status}
+                </span>
+              </div>
+
+              <p className="mt-[0.7rem] text-[1.45rem] leading-[1.65] text-[var(--color-text-secondary)]">
+                {previewEvent.description || "No description provided."}
+              </p>
+
+              <div className="mt-[2.2rem] grid gap-[2rem] sm:grid-cols-2">
+                {[
+                  ["Category", previewEvent.category || "-"],
+                  ["Price", `Rs ${Number(previewEvent.price || 0).toLocaleString("en-IN")}`],
+                  ["Date", previewEvent.date ? new Date(previewEvent.date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "-"],
+                  ["Time", previewEvent.startTime || (previewEvent.date ? new Date(previewEvent.date).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "-")],
+                  ["Venue", previewEvent.venue || "-"],
+                  ["City", previewEvent.city || "-"],
+                  ["Capacity", String(previewEvent.totalSeats || 0)],
+                  ["Organizer", previewEvent.organizer?.username || previewEvent.organizer?.email || "TicketHub"],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-[1.3rem] text-[var(--color-text-secondary)]">{label}</p>
+                    <p className="mt-[0.35rem] text-[1.7rem] leading-[1.35] text-[var(--color-text-primary)]">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

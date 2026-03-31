@@ -122,6 +122,16 @@ export const deleteAdminUser = async ({ authorizationToken, userId }) => {
   return response.data;
 };
 
+export const getAdminCoupons = async (authorizationToken) => {
+  const response = await axios.get(`${adminApiUrl}/coupons`, buildConfig(authorizationToken));
+  return response.data.coupons || [];
+};
+
+export const createAdminCoupon = async ({ authorizationToken, payload }) => {
+  const response = await axios.post(`${adminApiUrl}/coupons`, payload, buildConfig(authorizationToken));
+  return response.data.coupon;
+};
+
 export const getAdminBookings = async (authorizationToken) => {
   const response = await axios.get(`${adminApiUrl}/bookings`, buildConfig(authorizationToken));
   return response.data.bookings || [];
@@ -130,4 +140,9 @@ export const getAdminBookings = async (authorizationToken) => {
 export const updateAdminBooking = async ({ authorizationToken, bookingId, payload }) => {
   const response = await axios.patch(`${adminApiUrl}/bookings/${bookingId}`, payload, buildConfig(authorizationToken));
   return response.data.booking;
+};
+
+export const deleteAdminBooking = async ({ authorizationToken, bookingId }) => {
+  const response = await axios.delete(`${adminApiUrl}/bookings/${bookingId}`, buildConfig(authorizationToken));
+  return response.data;
 };

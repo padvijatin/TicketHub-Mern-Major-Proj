@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth.jsx";
 import { deleteAdminUser, getAdminUsers, updateAdminUser } from "../../utils/adminApi.js";
@@ -7,6 +8,7 @@ import { deleteAdminUser, getAdminUsers, updateAdminUser } from "../../utils/adm
 const UserManagement = () => {
   const queryClient = useQueryClient();
   const { authorizationToken, user } = useAuth();
+  const [searchValue, setSearchValue] = useState("");
   const { data: users = [], isLoading, isError } = useQuery({
     queryKey: ["admin-users", authorizationToken],
     queryFn: () => getAdminUsers(authorizationToken),
@@ -36,13 +38,40 @@ const UserManagement = () => {
     },
   });
 
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = searchValue.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return users;
+    }
+
+    return users.filter((item) =>
+      [item.username, item.email, item.phone, item.role, item.status]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+    );
+  }, [searchValue, users]);
+
   return (
     <div className="space-y-[2rem]">
       <div>
         <h1 className="text-[2.6rem] font-extrabold text-[var(--color-text-primary)]">User Management</h1>
         <p className="mt-[0.5rem] text-[1.35rem] text-[var(--color-text-secondary)]">
-          Manage roles, account status, and user records.
+          {filteredUsers.length} of {users.length} users
         </p>
+      </div>
+
+      <div className="max-w-[48rem]">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-[1.4rem] top-1/2 h-[1.8rem] w-[1.8rem] -translate-y-1/2 text-[var(--color-text-secondary)]" />
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            placeholder="Search by name, email, phone, role..."
+            className="h-[4.8rem] w-full rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white pl-[4.6rem] pr-[1.4rem] text-[1.4rem] text-[var(--color-text-primary)] outline-none shadow-[0_12px_30px_rgba(28,28,28,0.04)]"
+          />
+        </label>
       </div>
 
       <div className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]">
@@ -68,8 +97,8 @@ const UserManagement = () => {
                 <tr>
                   <td colSpan="7" className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">Unable to load users right now.</td>
                 </tr>
-              ) : users.length ? (
-                users.map((item) => (
+              ) : filteredUsers.length ? (
+                filteredUsers.map((item) => (
                   <tr key={item.id} className="border-b border-[rgba(28,28,28,0.06)] last:border-0">
                     <td className="py-[1.3rem] text-[1.35rem] font-semibold text-[var(--color-text-primary)]">{item.username}</td>
                     <td className="py-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)]">{item.email}</td>
@@ -113,7 +142,7 @@ const UserManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">No users found.</td>
+                  <td colSpan="7" className="py-[2rem] text-center text-[1.4rem] text-[var(--color-text-secondary)]">No users match this search.</td>
                 </tr>
               )}
             </tbody>

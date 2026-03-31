@@ -15,7 +15,11 @@ router.delete("/events/:id", adminController.deleteEvent);
 router.get("/users", adminController.listUsers);
 router.patch("/users/:id", adminController.updateUser);
 router.delete("/users/:id", adminController.deleteUser);
+router.get("/coupons", adminController.listCoupons);
+router.post("/coupons", adminController.createCoupon);
 router.get("/bookings", adminController.listBookings);
 router.patch("/bookings/:id", adminController.updateBooking);
+router.delete("/bookings/:id", adminController.deleteBooking);
 
 module.exports = router;
+

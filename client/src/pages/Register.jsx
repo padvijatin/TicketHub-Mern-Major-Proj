@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "../store/auth.jsx";
@@ -18,6 +18,7 @@ const getAuthErrorMessage = (error, fallbackMessage) =>
 export const Register = () => {
   const [user, setUser] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const skipAlreadyLoggedInToastRef = useRef(false);
   const { isLoading, isLoggedIn, registerUser } = useAuth();
   const navigate = useNavigate();
   const pageClassName =
@@ -35,6 +36,11 @@ export const Register = () => {
 
   useEffect(() => {
     if (isLoading || !isLoggedIn) {
+      return;
+    }
+
+    if (skipAlreadyLoggedInToastRef.current) {
+      skipAlreadyLoggedInToastRef.current = false;
       return;
     }
 
@@ -58,6 +64,7 @@ export const Register = () => {
         phone: user.phone.trim(),
         password: user.password,
       });
+      skipAlreadyLoggedInToastRef.current = true;
       toast.success(response.message || "Registration successful");
       setUser(initialState);
       navigate("/");

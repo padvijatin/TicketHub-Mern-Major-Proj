@@ -1,8 +1,10 @@
 const Event = require("../models/event-model");
 const Booking = require("../models/booking-model");
+const Coupon = require("../models/coupon-model");
 const User = require("../models/user-model");
 const { serializeEvent, syncEventSeatState } = require("./event-controller");
 const { serializeUser, normalizeRole, normalizeStatus } = require("./auth-controller");
+const { serializeCoupon } = require("../services/coupon-service");
 
 const getUserRole = (user) =>
   typeof user?.getRole === "function" ? user.getRole() : normalizeRole(user?.role || "user");
@@ -541,6 +543,101 @@ const deleteUser = async (req, res) => {
   }
 };
 
+
+const listCoupons = async (req, res) => {
+  try {
+    if (!ensureAdmin(req, res)) {
+      return;
+    }
+
+    const coupons = await Coupon.find({}).sort({ createdAt: -1, expiryDate: 1, code: 1 }).lean();
+
+    return res.status(200).json({
+      coupons: coupons.map((coupon) =>
+        serializeCoupon(coupon, {
+          isExpired: new Date(coupon.expiryDate).getTime() < Date.now(),
+        })
+      ),
+    });
+  } catch (error) {
+    console.error("coupons-list-failed", error);
+    return res.status(500).json({ message: "Unable to load coupons right now" });
+  }
+};
+
+const createCoupon = async (req, res) => {
+  try {
+    if (!ensureAdmin(req, res)) {
+      return;
+    }
+
+    const code = String(req.body.code || "").trim().toUpperCase();
+    const discountType = String(req.body.discountType || "").trim().toLowerCase();
+    const discountValue = Math.max(0, Number(req.body.discountValue) || 0);
+    const maxDiscount = req.body.maxDiscount === "" || req.body.maxDiscount == null
+      ? null
+      : Math.max(0, Number(req.body.maxDiscount) || 0);
+    const minOrderAmount = Math.max(0, Number(req.body.minOrderAmount) || 0);
+    const usageLimit = req.body.usageLimit === "" || req.body.usageLimit == null
+      ? null
+      : Math.max(1, Number(req.body.usageLimit) || 0);
+    const expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
+    if (expiryDate && !Number.isNaN(expiryDate.getTime())) {
+      expiryDate.setHours(23, 59, 59, 999);
+    }
+
+    if (!code) {
+      return res.status(400).json({ message: "Coupon code is required" });
+    }
+
+    if (!['percentage', 'flat'].includes(discountType)) {
+      return res.status(400).json({ message: "Select a valid coupon type" });
+    }
+
+    if (discountValue <= 0) {
+      return res.status(400).json({ message: "Discount must be greater than zero" });
+    }
+
+    if (discountType === "percentage" && discountValue > 100) {
+      return res.status(400).json({ message: "Percentage discount cannot be more than 100" });
+    }
+
+    if (!expiryDate || Number.isNaN(expiryDate.getTime())) {
+      return res.status(400).json({ message: "Select a valid expiry date" });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (expiryDate.getTime() < todayStart.getTime()) {
+      return res.status(400).json({ message: "Expiry date cannot be in the past" });
+    }
+
+    const existingCoupon = await Coupon.findOne({ code });
+    if (existingCoupon) {
+      return res.status(409).json({ message: "A coupon with this code already exists" });
+    }
+
+    const coupon = await Coupon.create({
+      code,
+      discountType,
+      discountValue,
+      maxDiscount,
+      minOrderAmount,
+      expiryDate,
+      usageLimit,
+      isActive: true,
+    });
+
+    return res.status(201).json({
+      message: "Coupon created successfully",
+      coupon: serializeCoupon(coupon),
+    });
+  } catch (error) {
+    console.error("coupon-create-failed", error);
+    return res.status(500).json({ message: "Unable to create coupon right now" });
+  }
+};
+
 const listBookings = async (req, res) => {
   try {
     if (!ensureStaff(req, res)) {
@@ -595,6 +692,50 @@ const updateBooking = async (req, res) => {
   }
 };
 
+const deleteBooking = async (req, res) => {
+  try {
+    if (!ensureStaff(req, res)) {
+      return;
+    }
+
+    const bookingFilter = await getAccessibleBookingFilter(req);
+    const booking = await Booking.findOne({ _id: req.params.id, ...bookingFilter });
+
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.event) {
+      const event = await Event.findById(booking.event);
+
+      if (event) {
+        const releasedSeats = (Array.isArray(booking.seats) ? booking.seats : [])
+          .map((seat) => String(seat).trim())
+          .filter(Boolean);
+
+        event.bookedSeats = (event.bookedSeats || []).filter(
+          (seat) => !releasedSeats.includes(String(seat).trim())
+        );
+        syncEventSeatState(event);
+        await event.save();
+      }
+    }
+
+    if (booking.couponId) {
+      await Coupon.updateOne(
+        { _id: booking.couponId, usedCount: { $gt: 0 } },
+        { $inc: { usedCount: -1 } }
+      );
+    }
+
+    await Booking.deleteOne({ _id: booking._id });
+
+    return res.status(200).json({ message: "Booking deleted successfully" });
+  } catch (error) {
+    console.error("booking-delete-failed", error);
+    return res.status(500).json({ message: "Unable to delete booking right now" });
+  }
+};
 module.exports = {
   getDashboardStats,
   listEvents,
@@ -604,8 +745,13 @@ module.exports = {
   listUsers,
   updateUser,
   deleteUser,
+  listCoupons,
+  createCoupon,
   listBookings,
   updateBooking,
+  deleteBooking,
 };
+
+
 
 
