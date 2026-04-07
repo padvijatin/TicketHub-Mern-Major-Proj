@@ -5,6 +5,7 @@ const apiBaseUrl = authApiUrl.replace(/\/auth\/?$/, "");
 const serverBaseUrl = apiBaseUrl.replace(/\/api\/?$/, "");
 const bookingsApiUrl = `${apiBaseUrl}/bookings`;
 const eventsApiUrl = `${apiBaseUrl}/events`;
+const paymentApiUrl = `${apiBaseUrl}/payment`;
 
 const normalizePosterUrl = (value = "") => {
   if (!value) return "";
@@ -45,49 +46,73 @@ const normalizeParams = (params = {}) =>
     return result;
   }, {});
 
+const buildAuthConfig = (authorizationToken = "") => ({
+  headers: authorizationToken
+    ? {
+        Authorization: authorizationToken,
+      }
+    : undefined,
+});
+
 export const getEvents = async (params = {}) => {
   const response = await axios.get(eventsApiUrl, { params: normalizeParams(params) });
   return (response.data.events || []).map(normalizeEvent);
 };
 
 export const getEventById = async (eventId, authorizationToken = "") => {
-  const response = await axios.get(`${eventsApiUrl}/${eventId}`, {
-    headers: authorizationToken
-      ? {
-          Authorization: authorizationToken,
-        }
-      : undefined,
-  });
+  const response = await axios.get(`${eventsApiUrl}/${eventId}`, buildAuthConfig(authorizationToken));
   return normalizeEvent(response.data.event || null);
 };
 
-export const bookEvent = async ({
+export const createPaymentOrder = async ({
   eventId,
   seats,
   couponCode = "",
-  paymentMethod = "upi",
-  paymentDetails = {},
+  amount,
   bookingMeta = {},
   authorizationToken = "",
 }) => {
   const response = await axios.post(
-    bookingsApiUrl,
+    `${paymentApiUrl}/create-order`,
     {
       eventId,
       seats,
       couponCode,
-      paymentMethod,
-      paymentDetails,
+      amount,
       bookingMeta,
     },
-    {
-      headers: authorizationToken
-        ? {
-            Authorization: authorizationToken,
-          }
-        : undefined,
-    }
+    buildAuthConfig(authorizationToken)
   );
+
+  return response.data;
+};
+
+export const verifyPayment = async ({
+  eventId,
+  seats,
+  couponCode = "",
+  amount,
+  bookingMeta = {},
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  authorizationToken = "",
+}) => {
+  const response = await axios.post(
+    `${paymentApiUrl}/verify`,
+    {
+      eventId,
+      seats,
+      couponCode,
+      amount,
+      bookingMeta,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    },
+    buildAuthConfig(authorizationToken)
+  );
+
   return {
     ...response.data,
     event: normalizeEvent(response.data.event || null),
@@ -95,13 +120,7 @@ export const bookEvent = async ({
 };
 
 export const getMyBookings = async (authorizationToken) => {
-  const response = await axios.get(`${bookingsApiUrl}/me`, {
-    headers: authorizationToken
-      ? {
-          Authorization: authorizationToken,
-        }
-      : undefined,
-  });
+  const response = await axios.get(`${bookingsApiUrl}/me`, buildAuthConfig(authorizationToken));
 
   return (response.data.bookings || []).map((booking) => ({
     ...booking,

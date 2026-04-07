@@ -12,6 +12,7 @@ const eventRoute = require("./router/event-router");
 const wishlistRoute = require("./router/wishlist-router");
 const adminRoute = require("./router/admin-router");
 const contactRoute = require("./router/contact-router");
+const paymentRoute = require("./router/payment-router");
 const { registerSeatSocketServer } = require("./services/socket-server");
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
@@ -56,6 +57,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoute);
 app.use("/api/bookings", bookingRoute);
+app.use("/api/payment", paymentRoute);
 app.use("/api/coupons", couponRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/wishlist", wishlistRoute);

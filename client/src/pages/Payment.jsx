@@ -1,69 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Building2,
-  CheckCircle,
-  ChevronLeft,
-  Lock,
-  Shield,
-  Smartphone,
-  Tag,
-} from "lucide-react";
-import { FaCcVisa, FaWallet } from "react-icons/fa";
+import { CheckCircle, ChevronLeft, Lock, QrCode, Shield, Smartphone, Tag, WalletCards } from "lucide-react";
 import { toast } from "react-toastify";
 import { getCoupons, validateCoupon } from "../utils/couponApi.js";
-import { bookEvent, getEventById } from "../utils/eventApi.js";
+import { createPaymentOrder, getEventById, verifyPayment } from "../utils/eventApi.js";
 import { useAuth } from "../store/auth.jsx";
 
-const paymentMethods = [
-  { id: "upi", label: "UPI", description: "Google Pay, PhonePe, Paytm", icon: Smartphone },
-  { id: "card", label: "Credit / Debit Card", description: "Visa, Mastercard, RuPay", icon: FaCcVisa },
-  { id: "netbanking", label: "Net Banking", description: "All major banks", icon: Building2 },
-  { id: "wallet", label: "Wallets", description: "Paytm, Amazon Pay, MobiKwik", icon: FaWallet },
+const paymentHighlights = [
+  { title: "UPI Apps", description: "Google Pay, PhonePe, Paytm and other UPI apps", icon: Smartphone },
+  { title: "Cards & Banks", description: "Credit card, debit card and net banking", icon: WalletCards },
+  { title: "Scan & Pay", description: "UPI QR and popular mobile-first checkout flows", icon: QrCode },
 ];
 
-const paymentMethodLogos = {
-  upi: [
-    { src: "/brands/gpay.svg", alt: "Google Pay" },
-    { src: "/brands/phonepe.svg", alt: "PhonePe" },
-    { src: "/brands/paytm.svg", alt: "Paytm" },
-  ],
-  card: [
-    { src: "/brands/visa.svg", alt: "Visa" },
-    { src: "/brands/mastercard.svg", alt: "Mastercard" },
-  ],
-  wallet: [
-    { src: "/brands/paytm.svg", alt: "Paytm" },
-    { src: "/brands/amazon-pay.svg", alt: "Amazon Pay" },
-    { src: "/brands/mobikwik.svg", alt: "MobiKwik" },
-  ],
-};
-
-const PaymentMethodLogos = ({ methodId, isActive }) => {
-  const logos = paymentMethodLogos[methodId] || [];
-
-  if (!logos.length) {
-    return null;
-  }
-
-  return (
-    <div className="mt-[0.85rem] flex flex-wrap gap-[0.65rem]">
-      {logos.map((logo) => (
-        <span
-          key={logo.alt}
-          className={`inline-flex h-[3rem] items-center rounded-[1rem] border px-[0.85rem] ${
-            isActive
-              ? "border-[rgba(248,68,100,0.18)] bg-white"
-              : "border-[rgba(15,23,42,0.06)] bg-[#f7f7f8]"
-          }`}
-        >
-          <img src={logo.src} alt={logo.alt} className="h-[1.7rem] w-auto object-contain" />
-        </span>
-      ))}
-    </div>
-  );
-};
+const quickPayBadges = ["Google Pay", "PhonePe", "Paytm", "UPI QR", "Cards", "Net Banking"];
 
 const buildDefaultPricing = (subtotal = 0) => {
   const safeSubtotal = Math.max(0, Math.round(Number(subtotal) || 0));
@@ -100,12 +50,67 @@ const formatEventSchedule = (value) => {
   })}`;
 };
 
+const loadRazorpayScript = () =>
+  new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[data-razorpay-checkout="true"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Unable to load Razorpay checkout")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.razorpayCheckout = "true";
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error("Unable to load Razorpay checkout"));
+    document.body.appendChild(script);
+  });
+
+const openRazorpayCheckout = ({ order, keyId, eventTitle, user }) =>
+  new Promise((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: "TicketHub",
+      description: eventTitle || "Ticket booking payment",
+      image: "/favicon.ico",
+      order_id: order.id,
+      prefill: {
+        name: user?.username || "",
+        email: user?.email || "",
+        contact: user?.phone || "",
+      },
+      notes: order.notes || {},
+      theme: {
+        color: "#f84464",
+      },
+      handler: (response) => resolve(response),
+      modal: {
+        ondismiss: () => reject(new Error("Payment cancelled")),
+      },
+    });
+
+    razorpay.on("payment.failed", (response) => {
+      reject(new Error(response?.error?.description || "Payment failed"));
+    });
+
+    razorpay.open();
+  });
+
 export const Payment = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { authorizationToken, isLoggedIn } = useAuth();
+  const { authorizationToken, isLoggedIn, user } = useAuth();
   const bookingState = location.state || {};
   const selectedItems = bookingState.items || [];
   const summary = bookingState.summary || [];
@@ -115,20 +120,7 @@ export const Payment = () => {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponFeedback, setCouponFeedback] = useState("");
-  const [selectedMethod, setSelectedMethod] = useState("upi");
   const [pricing, setPricing] = useState(() => buildDefaultPricing(subtotal));
-  const [paymentDetails, setPaymentDetails] = useState({
-    upiId: "",
-    holderName: "",
-    cardNumber: "",
-    expiryMonth: "",
-    expiryYear: "",
-    cvv: "",
-    bankName: "",
-    accountHolder: "",
-    walletProvider: "",
-    walletMobile: "",
-  });
 
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", id, authorizationToken],
@@ -184,22 +176,52 @@ export const Payment = () => {
     },
   });
 
-  const bookingMutation = useMutation({
-    mutationFn: () =>
-      bookEvent({
+  const paymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!isLoggedIn) {
+        throw new Error("Please login to complete payment");
+      }
+
+      if (!selectedItems.length) {
+        throw new Error("Please select seats before paying");
+      }
+
+      await loadRazorpayScript();
+
+      const orderResponse = await createPaymentOrder({
         eventId: id,
         seats: selectedItems,
         couponCode: appliedCoupon?.code || "",
-        paymentMethod: selectedMethod,
-        paymentDetails,
+        amount: pricing.finalAmount,
         bookingMeta,
         authorizationToken,
-      }),
+      });
+
+      const paymentResponse = await openRazorpayCheckout({
+        order: orderResponse.order,
+        keyId: orderResponse.keyId,
+        eventTitle: event?.title,
+        user,
+      });
+
+      return verifyPayment({
+        eventId: id,
+        seats: selectedItems,
+        couponCode: appliedCoupon?.code || "",
+        amount: orderResponse.amount,
+        bookingMeta,
+        razorpay_order_id: paymentResponse.razorpay_order_id,
+        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+        razorpay_signature: paymentResponse.razorpay_signature,
+        authorizationToken,
+      });
+    },
     onSuccess: (response) => {
       queryClient.setQueryData(["event", id, authorizationToken], response.event);
       queryClient.invalidateQueries({ queryKey: ["event", id] });
       queryClient.invalidateQueries({ queryKey: ["related-events"] });
       queryClient.invalidateQueries({ queryKey: ["checkout-coupons", subtotal, authorizationToken] });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings", authorizationToken] });
 
       const confirmationState = {
         items: response.bookedSeats || selectedItems,
@@ -207,25 +229,31 @@ export const Payment = () => {
         total: response.pricing?.finalAmount || pricing.finalAmount,
         currency,
         bookingMeta: response.booking?.bookingMeta || bookingMeta,
-        paymentMethod: response.booking?.paymentMethod || selectedMethod,
+        paymentMethod: response.booking?.paymentMethod || "razorpay",
         couponCode: response.booking?.couponCode || appliedCoupon?.code || "",
         pricing: response.pricing || pricing,
         booking: response.booking || null,
       };
 
       sessionStorage.setItem(`ticketHubConfirmation:${id}`, JSON.stringify(confirmationState));
-      toast.success(response.message || "Booking confirmed");
+      toast.success(response.message || "Payment successful");
       navigate(`/event/${id}/confirmation`, {
         state: confirmationState,
       });
     },
     onError: (error) => {
-      const message = error.response?.data?.message || "Unable to complete booking right now";
-      if (error.response?.status === 401) {
-        toast.error("Please login to complete payment");
-      } else {
-        toast.error(message);
+      const message = error.response?.data?.message || error.message || "Unable to complete payment right now";
+      if (message === "Please login to complete payment") {
+        navigate("/login", {
+          state: {
+            redirectTo: `/event/${id}/payment`,
+            bookingState,
+          },
+        });
+        return;
       }
+
+      toast.error(message);
       queryClient.invalidateQueries({ queryKey: ["event", id] });
       queryClient.invalidateQueries({ queryKey: ["checkout-coupons", subtotal, authorizationToken] });
     },
@@ -261,30 +289,7 @@ export const Payment = () => {
       return;
     }
 
-    if (selectedMethod === "upi" && !/^[a-z0-9.\-_]{2,}@[a-z]{2,}$/i.test(String(paymentDetails.upiId || "").trim())) {
-      toast.error("Enter a valid UPI ID (example: user@upi)");
-      return;
-    }
-
-    if (selectedMethod === "card") {
-      const cardDigits = String(paymentDetails.cardNumber || "").replace(/\D/g, "");
-      if (!String(paymentDetails.holderName || "").trim() || cardDigits.length < 12) {
-        toast.error("Enter valid card details");
-        return;
-      }
-    }
-
-    if (selectedMethod === "netbanking" && (!String(paymentDetails.bankName || "").trim() || !String(paymentDetails.accountHolder || "").trim())) {
-      toast.error("Enter bank and account holder details");
-      return;
-    }
-
-    if (selectedMethod === "wallet" && (!String(paymentDetails.walletProvider || "").trim() || String(paymentDetails.walletMobile || "").replace(/\D/g, "").length < 10)) {
-      toast.error("Enter wallet provider and mobile number");
-      return;
-    }
-
-    bookingMutation.mutate();
+    paymentMutation.mutate();
   };
 
   if (!selectedItems.length) {
@@ -318,7 +323,7 @@ export const Payment = () => {
           </button>
           <div>
             <h1 className="text-[2.9rem] font-extrabold tracking-[-0.04em] text-[var(--color-text-primary)]">
-              Payment
+              Secure Payment
             </h1>
             <p className="mt-[0.2rem] text-[1.45rem] text-[var(--color-text-secondary)]">
               {isLoading || !event ? "Preparing order..." : event.title}
@@ -330,124 +335,58 @@ export const Payment = () => {
           <section className="flex flex-col gap-[2rem]">
             {!isLoggedIn ? (
               <div className="rounded-[2rem] border border-[rgba(245,158,11,0.18)] bg-[rgba(245,158,11,0.08)] px-[1.6rem] py-[1.4rem] text-[1.3rem] text-[var(--color-text-secondary)]">
-                Login is required only when you complete payment. Coupons can still be checked before checkout.
+                Login is required to continue to Razorpay checkout.
               </div>
             ) : null}
 
             <div className="rounded-[2.4rem] border border-[rgba(15,23,42,0.07)] bg-white p-[2rem] shadow-[0_20px_48px_rgba(15,23,42,0.06)]">
               <h2 className="flex items-center gap-[0.8rem] text-[1.8rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
-                <span className="inline-flex h-[1.6rem] w-[1.6rem] rounded-[0.45rem] border border-[rgba(248,68,100,0.28)] bg-[rgba(248,68,100,0.08)]" />
-                Payment Method
+                <Smartphone className="h-[1.7rem] w-[1.7rem] text-[var(--color-primary)]" />
+                Popular Payment Options
               </h2>
 
-              <div className="mt-[1.5rem] space-y-[1rem]">
-                {paymentMethods.map((method) => {
-                  const Icon = method.icon;
+              <div className="mt-[1.5rem] rounded-[2rem] border border-[rgba(15,23,42,0.07)] bg-[linear-gradient(135deg,#ffffff_0%,#fff3f6_100%)] p-[1.6rem]">
+                <div className="flex items-start gap-[1rem]">
+                  <span className="inline-flex h-[4.2rem] w-[4.2rem] items-center justify-center rounded-[1.4rem] bg-[rgba(248,68,100,0.1)] text-[var(--color-primary)]">
+                    <CheckCircle className="h-[2rem] w-[2rem]" />
+                  </span>
+                  <div>
+                    <p className="text-[1.5rem] font-bold text-[var(--color-text-primary)]">Razorpay checkout tuned for modern payments</p>
+                    <p className="mt-[0.4rem] text-[1.2rem] leading-[1.7] text-[var(--color-text-secondary)]">
+                      Users can pay with Google Pay, PhonePe, Paytm, UPI apps, cards, net banking and scan-based UPI flows from one secure checkout.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-[1.4rem] flex flex-wrap gap-[0.8rem]">
+                {quickPayBadges.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex rounded-full border border-[rgba(15,23,42,0.08)] bg-[#f7f7f8] px-[1.1rem] py-[0.65rem] text-[1.08rem] font-semibold text-[var(--color-text-secondary)]"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-[1.6rem] grid gap-[1rem] md:grid-cols-3">
+                {paymentHighlights.map((item) => {
+                  const Icon = item.icon;
 
                   return (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => setSelectedMethod(method.id)}
-                      className={`flex w-full items-center gap-[1.4rem] rounded-[1.8rem] border p-[1.35rem] text-left transition-all duration-200 ${
-                        selectedMethod === method.id
-                          ? "border-[rgba(248,68,100,0.9)] bg-[rgba(248,68,100,0.04)] shadow-[0_12px_24px_rgba(248,68,100,0.08)]"
-                          : "border-[rgba(15,23,42,0.08)] bg-white hover:border-[rgba(248,68,100,0.16)]"
-                      }`}
+                    <div
+                      key={item.title}
+                      className="rounded-[1.8rem] border border-[rgba(15,23,42,0.08)] bg-[#fcfcfd] p-[1.3rem]"
                     >
-                      <span
-                        className={`inline-flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-[1.2rem] ${
-                          selectedMethod === method.id
-                            ? "bg-[var(--color-primary)] text-white"
-                            : "bg-[#f1f1f3] text-[var(--color-text-secondary)]"
-                        }`}
-                      >
-                        <Icon className="h-[1.8rem] w-[1.8rem]" />
+                      <span className="inline-flex h-[3.6rem] w-[3.6rem] items-center justify-center rounded-[1.1rem] bg-[rgba(248,68,100,0.08)] text-[var(--color-primary)]">
+                        <Icon className="h-[1.7rem] w-[1.7rem]" />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[1.45rem] font-bold text-[var(--color-text-primary)]">
-                          {method.label}
-                        </span>
-                        <span className="mt-[0.2rem] block text-[1.18rem] text-[var(--color-text-secondary)]">
-                          {method.description}
-                        </span>
-                        <PaymentMethodLogos methodId={method.id} isActive={selectedMethod === method.id} />
-                      </span>
-                      <span
-                        className={`inline-flex h-[2rem] w-[2rem] shrink-0 items-center justify-center rounded-full border ${
-                          selectedMethod === method.id
-                            ? "border-[var(--color-primary)]"
-                            : "border-[rgba(15,23,42,0.14)]"
-                        }`}
-                      >
-                        {selectedMethod === method.id ? (
-                          <span className="h-[0.95rem] w-[0.95rem] rounded-full bg-[var(--color-primary)]" />
-                        ) : null}
-                      </span>
-                    </button>
+                      <p className="mt-[1rem] text-[1.3rem] font-bold text-[var(--color-text-primary)]">{item.title}</p>
+                      <p className="mt-[0.35rem] text-[1.12rem] leading-[1.65] text-[var(--color-text-secondary)]">{item.description}</p>
+                    </div>
                   );
                 })}
-              </div>
-              <div className="mt-[1.4rem] rounded-[1.8rem] border border-[rgba(15,23,42,0.07)] bg-[#fafafb] p-[1.4rem]">
-                <p className="text-[1.14rem] font-semibold text-[var(--color-text-secondary)]">
-                  Demo payment details
-                </p>
-                {selectedMethod === "upi" ? (
-                  <input
-                    value={paymentDetails.upiId}
-                    onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, upiId: eventObject.target.value }))}
-                    placeholder="name@upi"
-                    className="mt-[0.9rem] h-[4.5rem] w-full rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                  />
-                ) : null}
-                {selectedMethod === "card" ? (
-                  <div className="mt-[0.9rem] grid gap-[0.8rem] md:grid-cols-2">
-                    <input
-                      value={paymentDetails.holderName}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, holderName: eventObject.target.value }))}
-                      placeholder="Card holder name"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                    <input
-                      value={paymentDetails.cardNumber}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, cardNumber: eventObject.target.value }))}
-                      placeholder="4111 1111 1111 1111"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                  </div>
-                ) : null}
-                {selectedMethod === "netbanking" ? (
-                  <div className="mt-[0.9rem] grid gap-[0.8rem] md:grid-cols-2">
-                    <input
-                      value={paymentDetails.bankName}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, bankName: eventObject.target.value }))}
-                      placeholder="Bank name"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                    <input
-                      value={paymentDetails.accountHolder}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, accountHolder: eventObject.target.value }))}
-                      placeholder="Account holder"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                  </div>
-                ) : null}
-                {selectedMethod === "wallet" ? (
-                  <div className="mt-[0.9rem] grid gap-[0.8rem] md:grid-cols-2">
-                    <input
-                      value={paymentDetails.walletProvider}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, walletProvider: eventObject.target.value }))}
-                      placeholder="Wallet provider"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                    <input
-                      value={paymentDetails.walletMobile}
-                      onChange={(eventObject) => setPaymentDetails((current) => ({ ...current, walletMobile: eventObject.target.value }))}
-                      placeholder="Mobile number"
-                      className="h-[4.5rem] rounded-[1.3rem] border border-[rgba(15,23,42,0.08)] bg-white px-[1.2rem] text-[1.3rem] outline-none focus:border-[rgba(248,68,100,0.24)]"
-                    />
-                  </div>
-                ) : null}
               </div>
             </div>
 
@@ -528,7 +467,7 @@ export const Payment = () => {
 
             <div className="flex items-center gap-[0.7rem] px-[0.3rem] text-[1.15rem] text-[var(--color-text-secondary)]">
               <Shield className="h-[1.45rem] w-[1.45rem] text-[var(--color-primary)]" />
-              <span>Your payment is secured with 256-bit SSL encryption</span>
+              <span>Razorpay secured checkout with verified payment signature and stored payment records</span>
               <Lock className="h-[1.25rem] w-[1.25rem]" />
             </div>
           </section>
@@ -617,10 +556,10 @@ export const Payment = () => {
                 <button
                   type="button"
                   onClick={handlePayment}
-                  disabled={bookingMutation.isPending || couponMutation.isPending || !selectedItems.length}
+                  disabled={paymentMutation.isPending || couponMutation.isPending || !selectedItems.length}
                   className="mt-[1.5rem] inline-flex h-[5rem] w-full items-center justify-center rounded-[1.6rem] bg-[var(--color-primary)] text-[1.6rem] font-bold text-[var(--color-text-light)] shadow-[0_18px_30px_rgba(248,68,100,0.22)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {bookingMutation.isPending ? "Processing..." : `Pay ${currency}${pricing.finalAmount.toLocaleString("en-IN")}`}
+                  {paymentMutation.isPending ? "Opening Razorpay..." : `Pay ${currency}${pricing.finalAmount.toLocaleString("en-IN")}`}
                 </button>
               </div>
             </div>
@@ -630,4 +569,3 @@ export const Payment = () => {
     </main>
   );
 };
-

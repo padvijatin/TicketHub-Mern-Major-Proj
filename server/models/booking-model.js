@@ -77,13 +77,27 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       trim: true,
       lowercase: true,
-      default: "upi",
+      default: "razorpay",
     },
-    paymentDetails: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
+    paymentGateway: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: "razorpay",
     },
     paymentReference: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    orderId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    paymentId: {
       type: String,
       trim: true,
       default: "",
@@ -95,7 +109,7 @@ const bookingSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
+      enum: ["pending", "paid", "failed", "refunded"],
       default: "paid",
     },
     qrPayload: {

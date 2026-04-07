@@ -13,11 +13,15 @@ const {
 const { buildZoneSeatIds } = require("../utils/seat-layout");
 const { serializeEvent, syncEventSeatState } = require("./event-controller");
 
-const buildBookingId = () => `TH${Date.now().toString(36).toUpperCase()}${Math.random()
-  .toString(36)
-  .slice(2, 6)
-  .toUpperCase()}`;
-const buildPaymentReference = (method = "upi") => `PAY-${String(method || "upi").slice(0, 4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+const buildBookingId = () =>
+  `TH${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+const createHttpError = (statusCode, message, extra = {}) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  Object.assign(error, extra);
+  return error;
+};
 
 const detectBookingContentType = (category = "") => {
   const value = String(category || "").trim().toLowerCase();
@@ -100,166 +104,182 @@ const rollbackReservedSeats = async (eventId, reservedSeats = []) => {
   await rollbackEvent.save();
 };
 
-const sanitizePaymentDetails = (paymentMethod, paymentDetails = {}) => {
-  const method = String(paymentMethod || "upi").toLowerCase();
-  const details = paymentDetails && typeof paymentDetails === "object" ? paymentDetails : {};
+const serializeBooking = (booking) => ({
+  id: booking._id.toString(),
+  bookingId: booking.bookingId,
+  bookingCode: booking.bookingCode || booking.bookingId,
+  seats: booking.seats || [],
+  summary: booking.summary || [],
+  bookingMeta: booking.bookingMeta || {},
+  originalAmount: booking.originalAmount || 0,
+  discountAmount: booking.discountAmount || 0,
+  finalAmount: booking.finalAmount || 0,
+  couponId: booking.couponId || null,
+  couponCode: booking.couponCode || "",
+  paymentMethod: booking.paymentMethod || "razorpay",
+  paymentGateway: booking.paymentGateway || "razorpay",
+  paymentReference: booking.paymentReference || booking.paymentId || "",
+  paymentCapturedAt: booking.paymentCapturedAt || null,
+  paymentStatus: booking.paymentStatus || "paid",
+  orderId: booking.orderId || "",
+  paymentId: booking.paymentId || "",
+  qrPayload: booking.qrPayload || "",
+  qrCodeDataUrl: booking.qrCodeDataUrl || "",
+  createdAt: booking.createdAt,
+});
 
-  if (method === "card") {
-    const cardNumber = String(details.cardNumber || "").replace(/\D/g, "");
-    return {
-      holderName: String(details.holderName || "").trim(),
-      cardNumberLast4: cardNumber.slice(-4),
-      expiryMonth: String(details.expiryMonth || "").trim().slice(0, 2),
-      expiryYear: String(details.expiryYear || "").trim().slice(0, 4),
-    };
-  }
+const buildBookingPayload = ({ booking, event, pricing, userId }) => {
+  const seatLocks = getSeatLockSnapshot(event._id.toString(), String(userId || ""));
 
-  if (method === "upi") {
-    return {
-      upiId: String(details.upiId || "").trim().toLowerCase(),
-    };
-  }
-
-  if (method === "netbanking") {
-    return {
-      bankName: String(details.bankName || "").trim(),
-      accountHolder: String(details.accountHolder || "").trim(),
-    };
-  }
-
-  if (method === "wallet") {
-    return {
-      walletProvider: String(details.walletProvider || "").trim(),
-      walletMobile: String(details.walletMobile || "").replace(/\D/g, "").slice(-10),
-    };
-  }
-
-  return {};
+  return {
+    message: "Seats booked successfully",
+    bookedSeats: booking.seats || [],
+    totalSeats: event.totalSeats,
+    availableSeats: event.availableSeats,
+    event: serializeEvent(event.toObject ? event.toObject() : event, {}, {}, seatLocks),
+    booking: serializeBooking(booking),
+    pricing,
+  };
 };
 
-const validatePaymentDetails = (paymentMethod, paymentDetails = {}) => {
-  const method = String(paymentMethod || "upi").toLowerCase();
+const prepareBookingCheckout = async ({ userId, eventId, seats = [], couponCode = "", expectedAmount } = {}) => {
+  const requestedSeats = [...new Set((Array.isArray(seats) ? seats : []).map((seat) => String(seat).trim()).filter(Boolean))];
+  const normalizedCouponCode = String(couponCode || "").trim().toUpperCase();
 
-  if (method === "card") {
-    if (!paymentDetails.holderName || !paymentDetails.cardNumberLast4 || paymentDetails.cardNumberLast4.length < 4) {
-      return "Please enter valid card details";
-    }
-    return "";
+  if (!eventId) {
+    throw createHttpError(400, "Event id is required");
   }
 
-  if (method === "upi") {
-    if (!paymentDetails.upiId || !/^[a-z0-9.\-_]{2,}@[a-z]{2,}$/i.test(paymentDetails.upiId)) {
-      return "Please enter a valid UPI ID";
-    }
-    return "";
+  if (!requestedSeats.length) {
+    throw createHttpError(400, "Please select at least one seat");
   }
 
-  if (method === "netbanking") {
-    if (!paymentDetails.bankName || !paymentDetails.accountHolder) {
-      return "Please enter valid net banking details";
-    }
-    return "";
+  const event = await Event.findById(eventId);
+
+  if (!event || !event.isActive || event.status !== "approved") {
+    throw createHttpError(404, "Event not found");
   }
 
-  if (method === "wallet") {
-    if (!paymentDetails.walletProvider || !paymentDetails.walletMobile || paymentDetails.walletMobile.length < 10) {
-      return "Please enter valid wallet details";
-    }
-    return "";
+  const normalizedState = syncEventSeatState(event);
+  const validSeatIds = new Set(normalizedState.seatZones.flatMap((zone) => buildZoneSeatIds(zone)));
+  const invalidSeats = requestedSeats.filter((seat) => !validSeatIds.has(seat));
+
+  if (invalidSeats.length) {
+    throw createHttpError(400, "Some selected seats are invalid", { invalidSeats });
   }
 
-  return "Unsupported payment method";
+  const alreadyBookedSeats = requestedSeats.filter((seat) => normalizedState.bookedSeats.includes(seat));
+
+  if (alreadyBookedSeats.length) {
+    throw createHttpError(409, "Some selected seats are already booked", { seats: alreadyBookedSeats });
+  }
+
+  const lockOwnership = assertSeatsLockedByUser({
+    eventId: event._id.toString(),
+    seatIds: requestedSeats,
+    userId: String(userId || ""),
+  });
+
+  if (!lockOwnership.ok) {
+    throw createHttpError(409, "Your seat lock expired. Please reselect your seats.", {
+      seats: [...lockOwnership.missingSeats, ...lockOwnership.conflictingSeats],
+    });
+  }
+
+  const pricingSummary = getBookingPricingSummary(requestedSeats, normalizedState.seatZones);
+
+  if (!pricingSummary.summary.length || pricingSummary.cartAmount <= 0) {
+    throw createHttpError(400, "Unable to calculate booking amount for the selected seats");
+  }
+
+  let pricing = buildCheckoutPricing({
+    cartAmount: pricingSummary.cartAmount,
+    discountAmount: 0,
+  });
+  let validatedCoupon = null;
+
+  if (normalizedCouponCode) {
+    const couponValidation = await validateCouponForAmount({
+      code: normalizedCouponCode,
+      cartAmount: pricingSummary.cartAmount,
+    });
+
+    if (!couponValidation.valid) {
+      throw createHttpError(400, couponValidation.message, {
+        valid: false,
+        discountAmount: couponValidation.pricing.discountAmount,
+        finalAmount: couponValidation.pricing.finalAmount,
+      });
+    }
+
+    pricing = couponValidation.pricing;
+    validatedCoupon = couponValidation.coupon;
+  }
+
+  if (expectedAmount !== undefined && expectedAmount !== null) {
+    const normalizedExpectedAmount = Math.max(0, Math.round(Number(expectedAmount) || 0));
+
+    if (normalizedExpectedAmount !== pricing.finalAmount) {
+      throw createHttpError(400, "Payment amount mismatch");
+    }
+  }
+
+  return {
+    event,
+    normalizedState,
+    pricing,
+    pricingSummary,
+    requestedSeats,
+    validatedCoupon,
+  };
 };
 
-const createHttpError = (statusCode, message, extra = {}) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  Object.assign(error, extra);
-  return error;
-};
-
-const createBooking = async (req, res) => {
+const finalizeBooking = async ({
+  user,
+  eventId,
+  seats = [],
+  couponCode = "",
+  bookingMeta = {},
+  paymentMethod = "razorpay",
+  paymentGateway = "razorpay",
+  paymentReference = "",
+  paymentCapturedAt = new Date(),
+  paymentStatus = "paid",
+  orderId = "",
+  paymentId = "",
+  expectedAmount,
+} = {}) => {
   let reservedSeats = [];
   let reservedEventId = null;
 
   try {
-    const requestedSeats = [
-      ...new Set(
-        (Array.isArray(req.body?.seats) ? req.body.seats : [])
-          .map((seat) => String(seat).trim())
-          .filter(Boolean)
-      ),
-    ];
-    const couponCode = String(req.body?.couponCode || "").trim().toUpperCase();
-    const paymentMethod = String(req.body?.paymentMethod || "upi").trim().toLowerCase() || "upi";
-    const paymentDetails = sanitizePaymentDetails(paymentMethod, req.body?.paymentDetails || {});
-    const bookingMeta = req.body?.bookingMeta && typeof req.body.bookingMeta === "object" ? req.body.bookingMeta : {};
-    const paymentValidationMessage = validatePaymentDetails(paymentMethod, paymentDetails);
-
-    if (paymentValidationMessage) {
-      throw createHttpError(400, paymentValidationMessage);
-    }
-
-    const event = await Event.findById(req.body.eventId);
-
-    if (!event || !event.isActive || event.status !== "approved") {
-      throw createHttpError(404, "Event not found");
-    }
-
-    const normalizedState = syncEventSeatState(event);
-    const validSeatIds = new Set(normalizedState.seatZones.flatMap((zone) => buildZoneSeatIds(zone)));
-    const invalidSeats = requestedSeats.filter((seat) => !validSeatIds.has(seat));
-
-    if (invalidSeats.length) {
-      throw createHttpError(400, "Some selected seats are invalid", { invalidSeats });
-    }
-
-    const alreadyBookedSeats = requestedSeats.filter((seat) => normalizedState.bookedSeats.includes(seat));
-
-    if (alreadyBookedSeats.length) {
-      throw createHttpError(409, "Some selected seats are already booked", { seats: alreadyBookedSeats });
-    }
-
-    const lockOwnership = assertSeatsLockedByUser({
-      eventId: event._id.toString(),
-      seatIds: requestedSeats,
-      userId: req.user._id.toString(),
+    const { event, pricing, pricingSummary, requestedSeats, validatedCoupon } = await prepareBookingCheckout({
+      userId: user?._id?.toString?.() || "",
+      eventId,
+      seats,
+      couponCode,
+      expectedAmount,
     });
 
-    if (!lockOwnership.ok) {
-      throw createHttpError(409, "Your seat lock expired. Please reselect your seats.", {
-        seats: [...lockOwnership.missingSeats, ...lockOwnership.conflictingSeats],
-      });
-    }
+    const existingBooking = paymentId
+      ? await Booking.findOne({ paymentId }).populate("event")
+      : orderId
+        ? await Booking.findOne({ orderId }).populate("event")
+        : null;
 
-    const pricingSummary = getBookingPricingSummary(requestedSeats, normalizedState.seatZones);
-
-    if (!pricingSummary.summary.length || pricingSummary.cartAmount <= 0) {
-      throw createHttpError(400, "Unable to calculate booking amount for the selected seats");
-    }
-
-    let pricing = buildCheckoutPricing({
-      cartAmount: pricingSummary.cartAmount,
-      discountAmount: 0,
-    });
-    let validatedCoupon = null;
-
-    if (couponCode) {
-      const couponValidation = await validateCouponForAmount({
-        code: couponCode,
-        cartAmount: pricingSummary.cartAmount,
+    if (existingBooking) {
+      const existingEvent = existingBooking.event ? syncEventSeatState(existingBooking.event) : event;
+      const existingPricing = buildCheckoutPricing({
+        cartAmount: existingBooking.originalAmount || 0,
+        discountAmount: existingBooking.discountAmount || 0,
       });
 
-      if (!couponValidation.valid) {
-        throw createHttpError(400, couponValidation.message, {
-          valid: false,
-          discountAmount: couponValidation.pricing.discountAmount,
-          finalAmount: couponValidation.pricing.finalAmount,
-        });
-      }
-
-      pricing = couponValidation.pricing;
-      validatedCoupon = couponValidation.coupon;
+      return buildBookingPayload({
+        booking: existingBooking,
+        event: existingEvent,
+        pricing: existingPricing,
+        userId: user?._id,
+      });
     }
 
     const reservedEvent = await Event.findOneAndUpdate(
@@ -273,7 +293,7 @@ const createBooking = async (req, res) => {
         $addToSet: { bookedSeats: { $each: requestedSeats } },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -299,11 +319,9 @@ const createBooking = async (req, res) => {
     reservedEvent.availableSeats = Math.max(0, reservedEvent.totalSeats - reservedEvent.bookedSeats.length);
     await reservedEvent.save();
 
-    const paymentReference = buildPaymentReference(paymentMethod);
-    const paymentCapturedAt = new Date();
     const booking = await createBookingWithRetry({
       event: reservedEvent._id,
-      user: req.user._id,
+      user: user?._id || null,
       seats: requestedSeats,
       summary: pricingSummary.summary,
       bookingMeta,
@@ -313,10 +331,12 @@ const createBooking = async (req, res) => {
       couponId: validatedCoupon?._id || null,
       couponCode: validatedCoupon?.code || "",
       paymentMethod,
-      paymentDetails,
-      paymentReference,
+      paymentGateway,
+      paymentReference: paymentReference || paymentId || orderId || "",
       paymentCapturedAt,
-      paymentStatus: "paid",
+      paymentStatus,
+      orderId,
+      paymentId,
     });
 
     const ticketPath = `/ticket/${booking.bookingId}`;
@@ -343,7 +363,7 @@ const createBooking = async (req, res) => {
     releaseSeats({
       eventId: reservedEvent._id.toString(),
       seatIds: requestedSeats,
-      userId: req.user._id.toString(),
+      userId: user?._id?.toString?.() || "",
       reason: "booked",
       broadcast: false,
     });
@@ -352,41 +372,17 @@ const createBooking = async (req, res) => {
       emitSeatBooked({
         eventId: reservedEvent._id.toString(),
         seatId,
-        userId: req.user._id.toString(),
+        userId: user?._id?.toString?.() || "",
       });
     });
 
-    const seatLocks = getSeatLockSnapshot(reservedEvent._id.toString(), req.user._id.toString());
-
-    return res.status(200).json({
-      message: "Seats booked successfully",
-      bookedSeats: requestedSeats,
-      totalSeats: reservedEvent.totalSeats,
-      availableSeats: reservedEvent.availableSeats,
-      event: serializeEvent(reservedEvent.toObject(), {}, {}, seatLocks),
-      booking: {
-        id: booking._id.toString(),
-        bookingId: booking.bookingId,
-        summary: booking.summary,
-        bookingMeta: booking.bookingMeta,
-        originalAmount: booking.originalAmount,
-        discountAmount: booking.discountAmount,
-        finalAmount: booking.finalAmount,
-        couponId: booking.couponId,
-        couponCode: booking.couponCode,
-        paymentMethod: booking.paymentMethod,
-        paymentDetails: booking.paymentDetails || {},
-        paymentReference: booking.paymentReference || "",
-        paymentCapturedAt: booking.paymentCapturedAt || null,
-        paymentStatus: booking.paymentStatus || "paid",
-        qrPayload: booking.qrPayload || "",
-        qrCodeDataUrl: booking.qrCodeDataUrl || "",
-      },
+    return buildBookingPayload({
+      booking,
+      event: reservedEvent,
       pricing,
+      userId: user?._id,
     });
   } catch (error) {
-    console.error("booking-create-failed", error);
-
     if (reservedEventId && reservedSeats.length) {
       try {
         await rollbackReservedSeats(reservedEventId, reservedSeats);
@@ -395,182 +391,129 @@ const createBooking = async (req, res) => {
       }
     }
 
-    if (error?.name === "ValidationError") {
-      const firstMessage = Object.values(error.errors || {})[0]?.message;
-      return res.status(400).json({ message: firstMessage || "Booking validation failed" });
+    throw error;
+  }
+};
+
+const createBooking = async (_req, res) =>
+  res.status(410).json({
+    message: "Direct booking is disabled. Complete payment through Razorpay checkout.",
+  });
+
+const listUserBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .populate("event", "title venue city date poster category")
+      .lean();
+
+    return res.status(200).json({
+      count: bookings.length,
+      bookings: bookings.map((booking) => ({
+        ...serializeBooking(booking),
+        event: booking.event
+          ? {
+              id: booking.event._id?.toString?.() || "",
+              title: booking.event.title || "",
+              venue: booking.event.venue || "",
+              city: booking.event.city || "",
+              date: booking.event.date || null,
+              poster: booking.event.poster || "",
+              category: booking.event.category || "",
+              contentType: detectBookingContentType(booking.event.category || ""),
+            }
+          : null,
+      })),
+    });
+  } catch (error) {
+    console.error("booking-list-user-failed", error);
+    return res.status(500).json({ message: "Unable to load your bookings right now" });
+  }
+};
+
+const listRecentBookings = async (req, res) => {
+  try {
+    const userRole = typeof req.user?.getRole === "function" ? req.user.getRole() : String(req.user?.role || "user");
+    if (userRole !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
-    if (error?.name === "VersionError") {
-      return res.status(409).json({ message: "These seats were just booked by someone else. Please choose different seats." });
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
+    const bookings = await Booking.find({})
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("event", "title venue city date")
+      .populate("user", "username email phone role")
+      .lean();
+
+    return res.status(200).json({
+      count: bookings.length,
+      bookings: bookings.map((booking) => ({
+        ...serializeBooking(booking),
+        event: booking.event
+          ? {
+              id: booking.event._id?.toString?.() || "",
+              title: booking.event.title || "",
+              venue: booking.event.venue || "",
+              city: booking.event.city || "",
+              date: booking.event.date || null,
+            }
+          : null,
+        user: booking.user
+          ? {
+              id: booking.user._id?.toString?.() || "",
+              username: booking.user.username || "",
+              email: booking.user.email || "",
+              phone: booking.user.phone || "",
+              role: booking.user.role || "user",
+            }
+          : null,
+      })),
+    });
+  } catch (error) {
+    console.error("booking-list-recent-failed", error);
+    return res.status(500).json({ message: "Unable to load bookings right now" });
+  }
+};
+
+const getBookingTicketByBookingId = async (req, res) => {
+  try {
+    const bookingId = String(req.params.bookingId || "").trim();
+
+    if (!bookingId) {
+      return res.status(400).json({ message: "Booking id is required" });
     }
 
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-        seats: error.seats || [],
-        invalidSeats: error.invalidSeats || [],
-        valid: error.valid,
-        discountAmount: error.discountAmount,
-        finalAmount: error.finalAmount,
-      });
+    const booking = await Booking.findOne({ bookingId }).lean();
+    if (!booking) {
+      return res.status(404).json({ message: "Ticket not found" });
     }
 
-    return res.status(500).json({ message: "Unable to complete booking right now" });
+    const event = await Event.findById(booking.event);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found for this ticket" });
+    }
+
+    const normalizedEvent = serializeEvent(event.toObject());
+    return res.status(200).json({
+      booking: serializeBooking(booking),
+      event: normalizedEvent,
+    });
+  } catch (error) {
+    console.error("booking-ticket-fetch-failed", error);
+    return res.status(500).json({ message: "Unable to fetch ticket right now" });
   }
 };
 
 module.exports = {
   createBooking,
-  listUserBookings: async (req, res) => {
-    try {
-      const bookings = await Booking.find({ user: req.user._id })
-        .sort({ createdAt: -1 })
-        .populate("event", "title venue city date poster category")
-        .lean();
-
-      return res.status(200).json({
-        count: bookings.length,
-        bookings: bookings.map((booking) => ({
-          id: booking._id.toString(),
-          bookingId: booking.bookingId,
-          seats: booking.seats || [],
-          summary: booking.summary || [],
-          bookingMeta: booking.bookingMeta || {},
-          originalAmount: booking.originalAmount || 0,
-          discountAmount: booking.discountAmount || 0,
-          finalAmount: booking.finalAmount || 0,
-          paymentMethod: booking.paymentMethod || "",
-          paymentDetails: booking.paymentDetails || {},
-          paymentReference: booking.paymentReference || "",
-          paymentCapturedAt: booking.paymentCapturedAt || null,
-          paymentStatus: booking.paymentStatus || "paid",
-          couponCode: booking.couponCode || "",
-          qrPayload: booking.qrPayload || "",
-          qrCodeDataUrl: booking.qrCodeDataUrl || "",
-          createdAt: booking.createdAt,
-          event: booking.event
-            ? {
-                id: booking.event._id?.toString?.() || "",
-                title: booking.event.title || "",
-                venue: booking.event.venue || "",
-                city: booking.event.city || "",
-                date: booking.event.date || null,
-                poster: booking.event.poster || "",
-                category: booking.event.category || "",
-                contentType: detectBookingContentType(booking.event.category || ""),
-              }
-            : null,
-        })),
-      });
-    } catch (error) {
-      console.error("booking-list-user-failed", error);
-      return res.status(500).json({ message: "Unable to load your bookings right now" });
-    }
-  },
-  listRecentBookings: async (req, res) => {
-    try {
-      const userRole = typeof req.user?.getRole === "function" ? req.user.getRole() : String(req.user?.role || "user");
-      if (userRole !== "admin") {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
-      const bookings = await Booking.find({})
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .populate("event", "title venue city date")
-        .populate("user", "username email phone role")
-        .lean();
-
-      return res.status(200).json({
-        count: bookings.length,
-        bookings: bookings.map((booking) => ({
-          id: booking._id.toString(),
-          bookingId: booking.bookingId,
-          bookingCode: booking.bookingCode,
-          seats: booking.seats || [],
-          summary: booking.summary || [],
-          originalAmount: booking.originalAmount || 0,
-          discountAmount: booking.discountAmount || 0,
-          finalAmount: booking.finalAmount || 0,
-          paymentMethod: booking.paymentMethod || "",
-          paymentStatus: booking.paymentStatus || "",
-          paymentDetails: booking.paymentDetails || {},
-          paymentReference: booking.paymentReference || "",
-          paymentCapturedAt: booking.paymentCapturedAt || null,
-          qrPayload: booking.qrPayload || "",
-          qrCodeDataUrl: booking.qrCodeDataUrl || "",
-          couponCode: booking.couponCode || "",
-          createdAt: booking.createdAt,
-          event: booking.event
-            ? {
-                id: booking.event._id?.toString?.() || "",
-                title: booking.event.title || "",
-                venue: booking.event.venue || "",
-                city: booking.event.city || "",
-                date: booking.event.date || null,
-              }
-            : null,
-          user: booking.user
-            ? {
-                id: booking.user._id?.toString?.() || "",
-                username: booking.user.username || "",
-                email: booking.user.email || "",
-                phone: booking.user.phone || "",
-                role: booking.user.role || "user",
-              }
-            : null,
-        })),
-      });
-    } catch (error) {
-      console.error("booking-list-recent-failed", error);
-      return res.status(500).json({ message: "Unable to load bookings right now" });
-    }
-  },
-  getBookingTicketByBookingId: async (req, res) => {
-    try {
-      const bookingId = String(req.params.bookingId || "").trim();
-
-      if (!bookingId) {
-        return res.status(400).json({ message: "Booking id is required" });
-      }
-
-      const booking = await Booking.findOne({ bookingId }).lean();
-      if (!booking) {
-        return res.status(404).json({ message: "Ticket not found" });
-      }
-
-      const event = await Event.findById(booking.event);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found for this ticket" });
-      }
-
-      const normalizedEvent = serializeEvent(event.toObject());
-      return res.status(200).json({
-        booking: {
-          id: booking._id.toString(),
-          bookingId: booking.bookingId,
-          seats: booking.seats || [],
-          summary: booking.summary || [],
-          bookingMeta: booking.bookingMeta || {},
-          originalAmount: booking.originalAmount || 0,
-          discountAmount: booking.discountAmount || 0,
-          finalAmount: booking.finalAmount || 0,
-          couponCode: booking.couponCode || "",
-          paymentMethod: booking.paymentMethod || "upi",
-          paymentDetails: booking.paymentDetails || {},
-          paymentReference: booking.paymentReference || "",
-          paymentCapturedAt: booking.paymentCapturedAt || null,
-          paymentStatus: booking.paymentStatus || "paid",
-          qrPayload: booking.qrPayload || "",
-          qrCodeDataUrl: booking.qrCodeDataUrl || "",
-          createdAt: booking.createdAt,
-        },
-        event: normalizedEvent,
-      });
-    } catch (error) {
-      console.error("booking-ticket-fetch-failed", error);
-      return res.status(500).json({ message: "Unable to fetch ticket right now" });
-    }
-  },
+  createHttpError,
+  detectBookingContentType,
+  finalizeBooking,
+  getBookingTicketByBookingId,
+  listRecentBookings,
+  listUserBookings,
+  prepareBookingCheckout,
+  serializeBooking,
 };
+

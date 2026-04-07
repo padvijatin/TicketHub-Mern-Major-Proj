@@ -47,7 +47,6 @@ const parseList = (value) => {
           return parsed.map((item) => String(item).trim()).filter(Boolean);
         }
       } catch (_error) {
-        // Fall back to comma-separated parsing.
       }
     }
   }
@@ -162,7 +161,6 @@ const serializeAdminBooking = (booking) => ({
   finalAmount: booking.finalAmount || 0,
   paymentMethod: booking.paymentMethod || "",
   paymentStatus: booking.paymentStatus || "paid",
-  paymentDetails: booking.paymentDetails || {},
   paymentReference: booking.paymentReference || "",
   paymentCapturedAt: booking.paymentCapturedAt || null,
   couponCode: booking.couponCode || "",
@@ -751,6 +749,7 @@ module.exports = {
   updateBooking,
   deleteBooking,
 };
+
 
 
 

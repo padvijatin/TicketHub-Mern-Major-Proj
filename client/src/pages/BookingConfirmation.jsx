@@ -28,7 +28,7 @@ export const BookingConfirmation = () => {
   const summary = bookingState.summary || [];
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
-  const paymentMethod = bookingState.paymentMethod || "upi";
+  const paymentMethod = bookingState.paymentMethod || "razorpay";
   const booking = bookingState.booking || null;
   const pricing = bookingState.pricing || {
     cartAmount: booking?.originalAmount || bookingState.total || 0,
@@ -38,6 +38,7 @@ export const BookingConfirmation = () => {
   const bookingId = booking?.bookingId || "";
   const qrCodeDataUrl = booking?.qrCodeDataUrl || "";
   const ticketUrl = booking?.qrPayload || (bookingId ? `${window.location.origin}/ticket/${bookingId}` : window.location.href);
+  const paymentRef = booking?.paymentId || booking?.paymentReference || "Captured";
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", id],
     queryFn: () => getEventById(id),
@@ -111,10 +112,7 @@ export const BookingConfirmation = () => {
             Booking Confirmed
           </h1>
           <p className="mt-[0.8rem] text-[1.4rem] text-[var(--color-text-secondary)]">
-            Booking ID:{" "}
-            <span className="font-bold text-[var(--color-text-primary)]">
-              {bookingId || "Unavailable"}
-            </span>
+            Booking ID: <span className="font-bold text-[var(--color-text-primary)]">{bookingId || "Unavailable"}</span>
           </p>
         </div>
 
@@ -184,23 +182,12 @@ export const BookingConfirmation = () => {
                 </div>
                 <div>
                   <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Payment Method</p>
-                  <p className="text-[1.4rem] font-bold uppercase text-[var(--color-text-primary)]">
-                    {paymentMethod}
-                  </p>
+                  <p className="text-[1.4rem] font-bold uppercase text-[var(--color-text-primary)]">{paymentMethod}</p>
                 </div>
-                {booking?.paymentDetails ? (
-                  <div>
-                    <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Payment Ref</p>
-                    <p className="text-[1.4rem] font-bold text-[var(--color-text-primary)]">
-                      {booking.paymentDetails.upiId ||
-                        (booking.paymentDetails.cardNumberLast4
-                          ? `**** ${booking.paymentDetails.cardNumberLast4}`
-                          : booking.paymentDetails.walletMobile
-                            ? `+91 ${booking.paymentDetails.walletMobile}`
-                            : booking.paymentDetails.bankName || "Captured")}
-                    </p>
-                  </div>
-                ) : null}
+                <div>
+                  <p className="text-[1.1rem] text-[var(--color-text-secondary)]">Payment Ref</p>
+                  <p className="text-[1.4rem] font-bold text-[var(--color-text-primary)]">{paymentRef}</p>
+                </div>
                 {booking?.couponCode ? (
                   <div className="flex items-start gap-[0.8rem]">
                     <Tag className="mt-[0.2rem] h-[1.6rem] w-[1.6rem] text-[var(--color-primary)]" />
@@ -257,9 +244,7 @@ export const BookingConfirmation = () => {
                   <p className="px-[1rem] py-[6rem] text-[1.2rem] text-[var(--color-text-secondary)]">QR is being prepared</p>
                 )}
               </div>
-              <p className="text-[1.2rem] text-[var(--color-text-secondary)]">
-                Scan opens your live ticket at entry.
-              </p>
+              <p className="text-[1.2rem] text-[var(--color-text-secondary)]">Scan opens your live ticket at entry.</p>
             </div>
 
             <div className="my-[1.8rem] border-t border-dashed border-[rgba(28,28,28,0.14)]" />

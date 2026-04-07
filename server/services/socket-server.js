@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const bookingController = require("../controllers/booking-controller");
+const paymentController = require("../controllers/payment-controller");
 const {
   LOCK_TTL_MS,
   attachSocketServer,
@@ -135,7 +135,7 @@ const registerSeatSocketServer = ({ server, allowedOrigins = [] }) => {
         return;
       }
 
-      const result = await callController(bookingController.createBooking, {
+      const result = await callController(paymentController.verifyPayment, {
         body: payload,
         user: socket.data.user,
         token: socket.data.token,
