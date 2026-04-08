@@ -1,6 +1,7 @@
 const Event = require("../models/event-model");
 const Booking = require("../models/booking-model");
 const Coupon = require("../models/coupon-model");
+const Payment = require("../models/payment-model");
 const QRCode = require("qrcode");
 const { validateCouponForAmount } = require("../services/coupon-service");
 const { buildCheckoutPricing } = require("../services/pricing-service");
@@ -11,7 +12,7 @@ const {
   releaseSeats,
 } = require("../services/seat-lock-service");
 const { buildZoneSeatIds } = require("../utils/seat-layout");
-const { serializeEvent, syncEventSeatState, ensureEventPosterState } = require("./event-controller");
+const { serializeEvent, syncEventSeatState, syncEventPosterState } = require("./event-controller");
 
 const buildBookingId = () =>
   `TH${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
@@ -400,8 +401,108 @@ const createBooking = async (_req, res) =>
     message: "Direct booking is disabled. Complete payment through Razorpay checkout.",
   });
 
+const syncUserBookingsFromPayments = async (userId) => {
+  if (!userId) {
+    return;
+  }
+
+  const paymentRecords = await Payment.find({ user: userId })
+    .select("booking paymentId orderId")
+    .lean();
+
+  if (!paymentRecords.length) {
+    return;
+  }
+
+  const bookingIds = [...new Set(paymentRecords.map((payment) => payment.booking?.toString?.()).filter(Boolean))];
+  const paymentIds = [...new Set(paymentRecords.map((payment) => String(payment.paymentId || "").trim()).filter(Boolean))];
+  const orderIds = [...new Set(paymentRecords.map((payment) => String(payment.orderId || "").trim()).filter(Boolean))];
+
+  if (bookingIds.length) {
+    await Booking.updateMany(
+      {
+        _id: { $in: bookingIds },
+        $or: [{ user: null }, { user: { $exists: false } }],
+      },
+      { $set: { user: userId } }
+    );
+  }
+
+  const referenceFilters = [];
+
+  if (paymentIds.length) {
+    referenceFilters.push({ paymentId: { $in: paymentIds } });
+  }
+
+  if (orderIds.length) {
+    referenceFilters.push({ orderId: { $in: orderIds } });
+  }
+
+  if (referenceFilters.length) {
+    await Booking.updateMany(
+      {
+        $and: [
+          { $or: referenceFilters },
+          { $or: [{ user: null }, { user: { $exists: false } }] },
+        ],
+      },
+      { $set: { user: userId } }
+    );
+  }
+
+  if (!referenceFilters.length) {
+    return;
+  }
+
+  const linkedBookings = await Booking.find({
+    user: userId,
+    $or: referenceFilters,
+  })
+    .select("_id paymentId orderId")
+    .lean();
+
+  if (!linkedBookings.length) {
+    return;
+  }
+
+  const bookingIdByReference = linkedBookings.reduce((accumulator, booking) => {
+    const paymentId = String(booking.paymentId || "").trim();
+    const orderId = String(booking.orderId || "").trim();
+
+    if (paymentId) {
+      accumulator[`payment:${paymentId}`] = booking._id;
+    }
+
+    if (orderId) {
+      accumulator[`order:${orderId}`] = booking._id;
+    }
+
+    return accumulator;
+  }, {});
+
+  await Promise.all(
+    paymentRecords.map(async (payment) => {
+      if (payment.booking) {
+        return;
+      }
+
+      const paymentId = String(payment.paymentId || "").trim();
+      const orderId = String(payment.orderId || "").trim();
+      const linkedBookingId = (paymentId && bookingIdByReference[`payment:${paymentId}`]) || (orderId && bookingIdByReference[`order:${orderId}`]);
+
+      if (!linkedBookingId) {
+        return;
+      }
+
+      await Payment.updateOne({ _id: payment._id, booking: null }, { $set: { booking: linkedBookingId } });
+    })
+  );
+};
+
 const listUserBookings = async (req, res) => {
   try {
+    await syncUserBookingsFromPayments(req.user?._id);
+
     const bookings = await Booking.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .populate("event", "title venue city date poster category")
@@ -410,7 +511,7 @@ const listUserBookings = async (req, res) => {
     await Promise.all(
       bookings.map(async (booking) => {
         if (booking.event) {
-          await ensureEventPosterState(booking.event);
+          await syncEventPosterState(booking.event);
         }
       })
     );
@@ -502,7 +603,7 @@ const getBookingTicketByBookingId = async (req, res) => {
       return res.status(404).json({ message: "Event not found for this ticket" });
     }
 
-    await ensureEventPosterState(event);
+    await syncEventPosterState(event);
     const normalizedEvent = serializeEvent(event.toObject());
     return res.status(200).json({
       booking: serializeBooking(booking),

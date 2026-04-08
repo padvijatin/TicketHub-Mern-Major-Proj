@@ -227,6 +227,11 @@ const verifyPayment = async (req, res) => {
 
     const existingBooking = await Booking.findOne({ paymentId: razorpay_payment_id }).populate("event");
     if (existingBooking) {
+      if (!existingBooking.user && req.user?._id) {
+        existingBooking.user = req.user._id;
+        await existingBooking.save();
+      }
+
       await upsertPaymentRecord({
         userId: req.user._id,
         eventId: existingBooking.event?._id || eventId,
