@@ -9,6 +9,14 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
   const { authorizationToken, user } = useAuth();
   const [searchValue, setSearchValue] = useState("");
+
+  const normalizeText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
   const { data: users = [], isLoading, isError } = useQuery({
     queryKey: ["admin-users", authorizationToken],
     queryFn: () => getAdminUsers(authorizationToken),
@@ -39,17 +47,28 @@ const UserManagement = () => {
   });
 
   const filteredUsers = useMemo(() => {
-    const normalizedQuery = searchValue.trim().toLowerCase();
+    const normalizedQuery = normalizeText(searchValue);
 
     if (!normalizedQuery) {
       return users;
     }
 
-    return users.filter((item) =>
-      [item.username, item.email, item.phone, item.role, item.status]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(normalizedQuery))
-    );
+    return users.filter((item) => {
+      const displayName = item.username || item.name || item.fullName;
+      const phone = item.phone || item.mobile || item.phoneNumber;
+      const searchableValues = [
+        displayName,
+        item.firstName,
+        item.lastName,
+        item.email,
+        phone,
+        item.role,
+        item.status,
+        item.id,
+      ];
+
+      return searchableValues.some((value) => normalizeText(value).includes(normalizedQuery));
+    });
   }, [searchValue, users]);
 
   return (
