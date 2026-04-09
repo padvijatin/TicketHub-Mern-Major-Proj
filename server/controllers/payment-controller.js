@@ -4,10 +4,32 @@ const Booking = require("../models/booking-model");
 const Payment = require("../models/payment-model");
 const { buildCheckoutPricing } = require("../services/pricing-service");
 const { getSeatLockSnapshot } = require("../services/seat-lock-service");
-const { finalizeBooking, prepareBookingCheckout, serializeBooking } = require("./booking-controller");
+const {
+  deliverBookingTicketByBookingId,
+  finalizeBooking,
+  prepareBookingCheckout,
+  serializeBooking,
+} = require("./booking-controller");
 const { serializeEvent, syncEventSeatState } = require("./event-controller");
 
 let razorpayClient = null;
+
+const triggerTicketDeliveryAsync = ({ bookingId, requestedBy }) => {
+  if (!bookingId) {
+    return;
+  }
+
+  setImmediate(async () => {
+    try {
+      await deliverBookingTicketByBookingId({
+        bookingId,
+        requestedBy: requestedBy || null,
+      });
+    } catch (ticketDeliveryError) {
+      console.error("payment-ticket-delivery-async-failed", ticketDeliveryError);
+    }
+  });
+};
 
 const getRazorpayClient = () => {
   if (razorpayClient) {
@@ -248,6 +270,13 @@ const verifyPayment = async (req, res) => {
         paidAt: existingBooking.paymentCapturedAt || existingBooking.createdAt || new Date(),
       });
 
+      if (existingBooking.bookingId && existingBooking.ticketEmailStatus !== "sent") {
+        triggerTicketDeliveryAsync({
+          bookingId: existingBooking.bookingId,
+          requestedBy: req.user,
+        });
+      }
+
       const existingResponse = await buildExistingBookingResponse({
         booking: existingBooking,
         userId: req.user._id,
@@ -348,6 +377,11 @@ const verifyPayment = async (req, res) => {
       status: "paid",
       paymentDetails: buildSlimPaymentDetails(payment),
       paidAt: payment.captured_at ? new Date(payment.captured_at * 1000) : new Date(),
+    });
+
+    triggerTicketDeliveryAsync({
+      bookingId: finalized?.booking?.bookingId,
+      requestedBy: req.user,
     });
 
     return res.status(200).json(finalized);

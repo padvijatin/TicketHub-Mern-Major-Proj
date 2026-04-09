@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/auth-middleware");
 const router = express.Router();
 
 router.get("/", eventController.getEvents);
+router.get("/discover/feed", eventController.getDiscoverFeed);
 router.get("/:id", eventController.getEventById);
 router.post("/:id/rate", authMiddleware, eventController.rateEvent);
 

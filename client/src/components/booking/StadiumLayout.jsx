@@ -178,7 +178,7 @@ export const StadiumLayout = ({ event }) => {
                 <p className="mt-[0.4rem] text-[1.25rem] text-[var(--color-text-secondary)]">
                   {activeZone.remainingSeats > 0
                     ? `${activeZone.remainingSeats} seats left out of ${activeZone.totalSeats}`
-                    : `Sold out • ${activeZone.totalSeats} seats booked`}
+                    : `Sold out ï¿½ ${activeZone.totalSeats} seats booked`}
                 </p>
               </div>
               <span className="text-[2rem] font-extrabold text-[var(--color-text-primary)]">

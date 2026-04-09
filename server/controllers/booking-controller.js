@@ -3,8 +3,15 @@ const Booking = require("../models/booking-model");
 const Coupon = require("../models/coupon-model");
 const Payment = require("../models/payment-model");
 const QRCode = require("qrcode");
+const puppeteer = require("puppeteer");
+const os = require("os");
+const path = require("path");
+const fs = require("fs/promises");
 const { validateCouponForAmount } = require("../services/coupon-service");
 const { buildCheckoutPricing } = require("../services/pricing-service");
+const { getTransporter } = require("../utils/mailer");
+const { cloudinary } = require("../config/cloudinary");
+const { incrementUserInterestSignals } = require("../services/recommendation-service");
 const {
   assertSeatsLockedByUser,
   emitSeatBooked,
@@ -105,6 +112,333 @@ const rollbackReservedSeats = async (eventId, reservedSeats = []) => {
   await rollbackEvent.save();
 };
 
+const escapeHtml = (value = "") =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const wait = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const withRetry = async (operation, { attempts = 3, delayMs = 350, shouldRetry } = {}) => {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const canRetry = attempt < attempts && (typeof shouldRetry === "function" ? shouldRetry(error) : true);
+      if (!canRetry) {
+        break;
+      }
+      await wait(delayMs * attempt);
+    }
+  }
+
+  throw lastError;
+};
+
+const generateTicketImageWithPuppeteer = async ({ booking }) => {
+  const filePath = path.join(os.tmpdir(), `ticket-${booking.bookingId}-${Date.now()}.png`);
+  const primaryClientUrl = String(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)[0] || "http://localhost:5173";
+  const liveTicketUrl = `${primaryClientUrl.replace(/\/$/, "")}/ticket/${booking.bookingId}`;
+  const eventDate = booking.event?.date
+    ? new Date(booking.event.date).toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "TBA";
+  const seatText = (booking.seats || []).join(", ") || "General";
+  const sectionText = (booking.summary || []).map((item) => item.label).join(", ") || "Standard";
+  const poster = String(booking.event?.poster || "").trim();
+  const qrCodeDataUrl = booking.qrCodeDataUrl || "";
+  const title = escapeHtml(booking.event?.title || "TicketHub Event");
+  const category = escapeHtml(booking.event?.category || "Event");
+  const venue = escapeHtml([booking.event?.venue, booking.event?.city].filter(Boolean).join(", ") || "Venue TBA");
+  const paidAmount = Number(booking.finalAmount || 0);
+
+  const html = `
+    <html><head><meta charset="UTF-8" />
+    <style>
+      body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6}
+      .card{width:920px;min-height:1120px;background:#fff;border:1px solid #e5e7eb;border-radius:26px;overflow:hidden}
+      .top{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #ececec}
+      .brand{font-size:40px;font-weight:800;color:#f43f5e}.admit{font-size:17px;font-weight:700;color:#6b7280;border:1px solid #e5e7eb;border-radius:999px;padding:8px 14px}
+      .hero{position:relative;height:280px;background:#111827}.hero img{width:100%;height:100%;object-fit:cover}.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.75))}
+      .heroText{position:absolute;left:24px;bottom:20px;color:#fff}.title{font-size:46px;font-weight:800;margin:0}.cat{font-size:28px;margin-top:8px;color:rgba(255,255,255,.9)}
+      .content{padding:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px}.label{color:#6b7280;font-size:26px}.value{color:#111827;font-weight:700;font-size:34px;line-height:1.25}
+      .block{margin-top:20px;border-radius:20px;background:#f7f7f8;padding:16px;border:1px solid #ededed}.row{display:flex;justify-content:space-between;font-size:28px;color:#374151;margin-top:6px}.row strong{color:#111827}
+      .divider{margin:20px 0;border-top:2px dashed #e5e7eb}.qrWrap{display:flex;flex-direction:column;align-items:center}
+      .qr{width:208px;height:208px;border:1px solid #e5e7eb;border-radius:18px;padding:14px;background:#fff;object-fit:contain}.scan{font-size:26px;color:#6b7280;margin-top:12px}
+      .total{display:flex;justify-content:space-between;align-items:flex-end}.tLabel{font-size:34px;color:#6b7280}.tVal{font-size:56px;font-weight:800;color:#111827}
+    </style></head>
+    <body><div class="card">
+      <div class="top"><div class="brand">TicketHub</div><div class="admit">ADMIT ONE</div></div>
+      <div class="hero">${poster ? `<img src="${escapeHtml(poster)}" alt="${title}" />` : ""}<div class="shade"></div><div class="heroText"><h1 class="title">${title}</h1><div class="cat">${category}</div></div></div>
+      <div class="content">
+        <div class="grid">
+          <div><div class="label">Date</div><div class="value">${escapeHtml(eventDate)}</div></div>
+          <div><div class="label">Venue</div><div class="value">${venue}</div></div>
+          <div><div class="label">Tickets</div><div class="value">${escapeHtml(seatText)}</div></div>
+          <div><div class="label">Sections</div><div class="value">${escapeHtml(sectionText)}</div></div>
+          <div><div class="label">Payment Method</div><div class="value">${escapeHtml(String(booking.paymentMethod || "razorpay").toUpperCase())}</div></div>
+          <div><div class="label">Payment Ref</div><div class="value">${escapeHtml(booking.paymentId || booking.paymentReference || "Captured")}</div></div>
+        </div>
+        <div class="block"><div class="row"><span>Booking ID</span><strong>${escapeHtml(booking.bookingId)}</strong></div></div>
+        <div class="divider"></div>
+        <div class="qrWrap">${qrCodeDataUrl ? `<img class="qr" src="${qrCodeDataUrl}" alt="QR" />` : '<div class="qr"></div>'}<div class="scan">Scan opens your live ticket at entry.</div></div>
+        <div class="divider"></div>
+        <div class="total"><div class="tLabel">Total Paid</div><div class="tVal">Rs ${paidAmount.toLocaleString("en-IN")}</div></div>
+      </div>
+    </div></body></html>
+  `;
+
+  const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1600, height: 2200, deviceScaleFactor: 1.5 });
+
+    let capturedFromLivePage = false;
+    try {
+      await page.goto(liveTicketUrl, { waitUntil: "networkidle2", timeout: 25000 });
+      await page.waitForSelector("article", { timeout: 12000 });
+      const articleElement = await page.$("article");
+
+      if (articleElement) {
+        await articleElement.screenshot({
+          path: filePath,
+          type: "png",
+        });
+        capturedFromLivePage = true;
+      }
+    } catch {
+      capturedFromLivePage = false;
+    }
+
+    if (!capturedFromLivePage) {
+      await page.setViewport({ width: 920, height: 1120, deviceScaleFactor: 2 });
+      await page.setContent(html, { waitUntil: "networkidle0" });
+      await page.screenshot({ path: filePath, type: "png" });
+    }
+  } finally {
+    await browser.close();
+  }
+
+  const imageBuffer = await fs.readFile(filePath);
+  return { filePath, imageBuffer, mimeType: "image/png" };
+};
+
+const uploadTicketToCloudinary = async ({ filePath, bookingId }) => {
+  const result = await withRetry(
+    () =>
+      cloudinary.uploader.upload(filePath, {
+        folder: "tickethub/tickets",
+        resource_type: "image",
+        public_id: `ticket-${bookingId}-${Date.now()}`,
+        overwrite: true,
+      }),
+    {
+      shouldRetry: (error) => {
+        const statusCode = Number(error?.http_code || error?.status || 0);
+        return !statusCode || statusCode >= 500;
+      },
+    }
+  );
+
+  return String(result?.secure_url || result?.url || "").trim();
+};
+
+const cleanupCloudinaryTicket = async (ticketUrl = "") => {
+  const marker = "/upload/";
+  const markerIndex = ticketUrl.indexOf(marker);
+  if (!ticketUrl || markerIndex < 0) return;
+
+  try {
+    const afterUpload = ticketUrl.slice(markerIndex + marker.length).split("?")[0];
+    const segments = afterUpload.split("/").filter(Boolean);
+    const withoutVersion = /^v\d+$/.test(segments[0]) ? segments.slice(1) : segments;
+    const lastSegment = withoutVersion[withoutVersion.length - 1] || "";
+    const publicId = [...withoutVersion.slice(0, -1), lastSegment.replace(/\.[a-z0-9]+$/i, "")].join("/");
+    if (!publicId) return;
+    await cloudinary.uploader.destroy(publicId, { invalidate: true, resource_type: "image" });
+  } catch (error) {
+    console.error("booking-ticket-cloudinary-cleanup-failed", error);
+  }
+};
+
+const sendTicketEmail = async ({ transporter, mailOptions }) =>
+  withRetry(
+    async () => {
+      await transporter.sendMail(mailOptions);
+      return true;
+    },
+    {
+      shouldRetry: (error) => ["ETIMEDOUT", "ESOCKET", "ECONNECTION", "EAI_AGAIN"].includes(String(error?.code || "")),
+    }
+  );
+
+const fetchImageBufferFromUrl = async (url = "") => {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) {
+    return null;
+  }
+
+  const response = await fetch(normalizedUrl);
+  if (!response.ok) {
+    throw new Error(`Unable to download ticket image from Cloudinary (${response.status})`);
+  }
+
+  const contentType = String(response.headers.get("content-type") || "image/png");
+  const arrayBuffer = await response.arrayBuffer();
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    contentType,
+  };
+};
+
+const buildTicketMailOptions = ({ booking, recipientEmail, fromEmail, ticketUrl, imageBuffer, mimeType }) => ({
+  from: fromEmail,
+  to: recipientEmail,
+  subject: `Your TicketHub ticket ${booking.bookingId}`,
+  text: [
+    `Hi ${booking.user?.username || "there"},`,
+    "",
+    `Your ticket is ready for ${booking.event?.title || "your event"}.`,
+    `Booking ID: ${booking.bookingId}`,
+    booking.event?.venue || booking.event?.city ? `Venue: ${[booking.event?.venue, booking.event?.city].filter(Boolean).join(", ")}` : "",
+    booking.event?.date ? `Date: ${new Date(booking.event.date).toLocaleString("en-IN")}` : "",
+    `Download ticket: ${ticketUrl}`,
+    booking.qrPayload ? `Live ticket: ${booking.qrPayload}` : "",
+  ].filter(Boolean).join("\n"),
+  html: `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;">
+      <h2 style="margin-bottom:12px;">Your TicketHub ticket is ready</h2>
+      <p>Hi ${booking.user?.username || "there"},</p>
+      <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+      ${booking.event?.title ? `<p><strong>Event:</strong> ${booking.event.title}</p>` : ""}
+      ${booking.event?.venue || booking.event?.city ? `<p><strong>Venue:</strong> ${[booking.event?.venue, booking.event?.city].filter(Boolean).join(", ")}</p>` : ""}
+      ${booking.event?.date ? `<p><strong>Date:</strong> ${new Date(booking.event.date).toLocaleString("en-IN")}</p>` : ""}
+      <p style="margin:16px 0;">
+        <a href="${ticketUrl}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Download Ticket</a>
+      </p>
+      ${booking.qrPayload ? `<p><a href="${booking.qrPayload}">Open your live ticket</a></p>` : ""}
+      <p>Your professionally formatted ticket is attached to this email.</p>
+    </div>
+  `,
+  attachments: [{ filename: `TicketHub-${booking.bookingId}.png`, content: imageBuffer, contentType: mimeType }],
+});
+
+const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null } = {}) => {
+  let tempFilePath = "";
+  let uploadedTicketUrl = "";
+  const normalizedBookingId = String(bookingId || "").trim();
+  if (!normalizedBookingId) {
+    throw createHttpError(400, "Booking id is required");
+  }
+
+  try {
+    const booking = await Booking.findOne({ bookingId: normalizedBookingId })
+      .populate("event", "title venue city date poster category")
+      .populate("user", "username email")
+      .exec();
+    if (!booking) {
+      throw createHttpError(404, "Booking not found");
+    }
+
+    if (requestedBy) {
+      const userRole = typeof requestedBy.getRole === "function" ? requestedBy.getRole() : String(requestedBy.role || "user");
+      const isOwner = booking.user?._id?.toString?.() === requestedBy?._id?.toString?.();
+      if (!isOwner && userRole !== "admin") {
+        throw createHttpError(403, "You cannot deliver this ticket");
+      }
+    }
+
+    if (booking.ticketEmailStatus === "sent" && booking.ticketEmailSentAt && booking.ticketImageUrl) {
+      return { message: "Ticket already emailed", alreadyDelivered: true, booking: serializeBooking(booking) };
+    }
+
+    const recipientEmail = booking.user?.email || requestedBy?.email;
+    if (!recipientEmail) {
+      throw createHttpError(400, "Ticket recipient email is missing");
+    }
+
+    let imageBuffer;
+    let mimeType;
+    const existingTicketUrl = String(booking.ticketImageUrl || "").trim();
+
+    if (existingTicketUrl) {
+      const cloudinaryImage = await fetchImageBufferFromUrl(existingTicketUrl);
+      imageBuffer = cloudinaryImage?.buffer;
+      mimeType = cloudinaryImage?.contentType || "image/png";
+      uploadedTicketUrl = existingTicketUrl;
+    } else {
+      const generatedTicket = await generateTicketImageWithPuppeteer({ booking });
+      tempFilePath = generatedTicket.filePath;
+      imageBuffer = generatedTicket.imageBuffer;
+      mimeType = generatedTicket.mimeType;
+
+      uploadedTicketUrl = await uploadTicketToCloudinary({
+        filePath: generatedTicket.filePath,
+        bookingId: booking.bookingId,
+      });
+      if (!uploadedTicketUrl) {
+        throw createHttpError(500, "Unable to store ticket image");
+      }
+    }
+
+    const transporter = getTransporter();
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+    if (!fromEmail) {
+      throw createHttpError(500, "Ticket email sender is not configured");
+    }
+
+    const mailOptions = buildTicketMailOptions({
+      booking,
+      recipientEmail,
+      fromEmail,
+      ticketUrl: uploadedTicketUrl,
+      imageBuffer,
+      mimeType,
+    });
+
+    await sendTicketEmail({ transporter, mailOptions });
+
+    booking.ticketImageUrl = uploadedTicketUrl;
+    booking.ticketEmailStatus = "sent";
+    booking.ticketEmailSentAt = new Date();
+    await booking.save();
+
+    return { message: "Ticket emailed successfully", alreadyDelivered: false, booking: serializeBooking(booking) };
+  } catch (error) {
+    if (uploadedTicketUrl) {
+      await cleanupCloudinaryTicket(uploadedTicketUrl);
+    }
+    if (normalizedBookingId) {
+      await Booking.updateOne({ bookingId: normalizedBookingId }, { $set: { ticketEmailStatus: "failed" } });
+    }
+    throw error;
+  } finally {
+    if (tempFilePath) {
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.error("booking-ticket-temp-cleanup-failed", cleanupError);
+      }
+    }
+  }
+};
+
 const serializeBooking = (booking) => ({
   id: booking._id.toString(),
   bookingId: booking.bookingId,
@@ -126,6 +460,9 @@ const serializeBooking = (booking) => ({
   paymentId: booking.paymentId || "",
   qrPayload: booking.qrPayload || "",
   qrCodeDataUrl: booking.qrCodeDataUrl || "",
+  ticketImageUrl: booking.ticketImageUrl || "",
+  ticketEmailStatus: booking.ticketEmailStatus || "pending",
+  ticketEmailSentAt: booking.ticketEmailSentAt || null,
   createdAt: booking.createdAt,
 });
 
@@ -356,6 +693,20 @@ const finalizeBooking = async ({
     booking.qrPayload = qrPayload;
     booking.qrCodeDataUrl = qrCodeDataUrl;
     await booking.save();
+    await Event.updateOne(
+      { _id: reservedEvent._id },
+      {
+        $inc: { bookingCount: 1 },
+      }
+    );
+
+    await incrementUserInterestSignals({
+      userId: user?._id,
+      category: reservedEvent.category,
+      city: reservedEvent.city,
+      contentType: detectBookingContentType(reservedEvent.category),
+      weight: 3,
+    });
 
     if (validatedCoupon?._id) {
       await Coupon.updateOne({ _id: validatedCoupon._id }, { $inc: { usedCount: 1 } });
@@ -585,6 +936,26 @@ const listRecentBookings = async (req, res) => {
   }
 };
 
+const deliverBookingTicket = async (req, res) => {
+  try {
+    const result = await deliverBookingTicketByBookingId({
+      bookingId: req.params.bookingId,
+      requestedBy: req.user || null,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("booking-ticket-delivery-failed", error);
+
+    return res.status(500).json({
+      message:
+        error.message === "Mail server is not configured"
+          ? "Ticket email server is not configured"
+          : "Unable to email ticket right now",
+    });
+  }
+};
+
 const getBookingTicketByBookingId = async (req, res) => {
   try {
     const bookingId = String(req.params.bookingId || "").trim();
@@ -619,6 +990,8 @@ module.exports = {
   createBooking,
   createHttpError,
   detectBookingContentType,
+  deliverBookingTicket,
+  deliverBookingTicketByBookingId,
   finalizeBooking,
   getBookingTicketByBookingId,
   listRecentBookings,

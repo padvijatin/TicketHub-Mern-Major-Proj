@@ -1,6 +1,7 @@
 const Event = require("../models/event-model");
 const Booking = require("../models/booking-model");
 const Coupon = require("../models/coupon-model");
+const Payment = require("../models/payment-model");
 const User = require("../models/user-model");
 const { serializeEvent, syncEventPosterStateForList, syncEventSeatState } = require("./event-controller");
 const { serializeUser, normalizeRole, normalizeStatus } = require("./auth-controller");
@@ -779,6 +780,7 @@ const deleteBooking = async (req, res) => {
           (seat) => !releasedSeats.includes(String(seat).trim())
         );
         syncEventSeatState(event);
+        event.bookingCount = Math.max(0, Number(event.bookingCount || 0) - 1);
         await event.save();
       }
     }
@@ -789,6 +791,25 @@ const deleteBooking = async (req, res) => {
         { $inc: { usedCount: -1 } }
       );
     }
+
+    if (booking.ticketImageUrl) {
+      await deleteCloudinaryAsset(booking.ticketImageUrl);
+    }
+
+    await Payment.updateMany(
+      {
+        $or: [
+          { booking: booking._id },
+          { paymentId: booking.paymentId || "__none__" },
+          { orderId: booking.orderId || "__none__" },
+        ],
+      },
+      {
+        $set: {
+          booking: null,
+        },
+      }
+    );
 
     await Booking.deleteOne({ _id: booking._id });
 

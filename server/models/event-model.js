@@ -158,6 +158,20 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    viewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    bookingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastViewedAt: {
+      type: Date,
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

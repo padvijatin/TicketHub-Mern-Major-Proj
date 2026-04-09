@@ -8,9 +8,10 @@ import "swiper/css/navigation";
 import EventCard from "../components/EventCard.jsx";
 import { HeroCarousel } from "../components/HeroCarousel.jsx";
 import PosterImage from "../components/PosterImage.jsx";
+import { useAuth } from "../store/auth.jsx";
 import { useLocationStore, filterItemsByLocation } from "../store/location.jsx";
 import { useWishlist } from "../store/wishlist.jsx";
-import { getEvents } from "../utils/eventApi.js";
+import { getDiscoverFeed, getEvents } from "../utils/eventApi.js";
 
 const heroFallbackByType = {
   movie: "bg-[linear-gradient(135deg,#181032_0%,#7b3fe4_52%,#f84464_100%)]",
@@ -141,6 +142,8 @@ export const Home = () => {
   const [error, setError] = useState("");
   const { selectedLocation } = useLocationStore();
   const { wishlistItems } = useWishlist();
+  const { authorizationToken } = useAuth();
+  const [discoverFeed, setDiscoverFeed] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -150,10 +153,14 @@ export const Home = () => {
       setError("");
 
       try {
-        const eventData = await getEvents({ limit: 24 });
+        const [eventData, feedData] = await Promise.all([
+          getEvents({ limit: 36 }),
+          getDiscoverFeed(authorizationToken).catch(() => null),
+        ]);
 
         if (!ignore) {
           setHomeEvents(eventData);
+          setDiscoverFeed(feedData);
         }
       } catch {
         if (!ignore) {
@@ -171,7 +178,7 @@ export const Home = () => {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [authorizationToken]);
 
   const locationEvents = useMemo(
     () => filterItemsByLocation(homeEvents, selectedLocation),
@@ -193,23 +200,38 @@ export const Home = () => {
     }, {});
   }, [locationEvents, wishlistItems]);
 
-  const recommendedMovies = recommendedItemsByType.movie || [];
-  const recommendedEvents = recommendedItemsByType.event || [];
-  const recommendedSports = recommendedItemsByType.sports || [];
+  const recommendedMovies = discoverFeed?.recommended?.movies?.length
+    ? filterItemsByLocation(discoverFeed.recommended.movies, selectedLocation)
+    : recommendedItemsByType.movie || [];
+  const recommendedEvents = discoverFeed?.recommended?.events?.length
+    ? filterItemsByLocation(discoverFeed.recommended.events, selectedLocation)
+    : recommendedItemsByType.event || [];
+  const recommendedSports = discoverFeed?.recommended?.sports?.length
+    ? filterItemsByLocation(discoverFeed.recommended.sports, selectedLocation)
+    : recommendedItemsByType.sports || [];
 
   const popularEvents = useMemo(
-    () => locationEvents.filter((item) => item.contentType === "event").slice(0, 8),
-    [locationEvents]
+    () =>
+      discoverFeed?.popular?.events?.length
+        ? filterItemsByLocation(discoverFeed.popular.events, selectedLocation).slice(0, 8)
+        : locationEvents.filter((item) => item.contentType === "event").slice(0, 8),
+    [discoverFeed?.popular?.events, locationEvents, selectedLocation]
   );
 
   const popularMovies = useMemo(
-    () => locationEvents.filter((item) => item.contentType === "movie").slice(0, 8),
-    [locationEvents]
+    () =>
+      discoverFeed?.popular?.movies?.length
+        ? filterItemsByLocation(discoverFeed.popular.movies, selectedLocation).slice(0, 8)
+        : locationEvents.filter((item) => item.contentType === "movie").slice(0, 8),
+    [discoverFeed?.popular?.movies, locationEvents, selectedLocation]
   );
 
   const topGamesAndSportsEvents = useMemo(
-    () => locationEvents.filter((item) => item.contentType === "sports").slice(0, 8),
-    [locationEvents]
+    () =>
+      discoverFeed?.trending?.sports?.length
+        ? filterItemsByLocation(discoverFeed.trending.sports, selectedLocation).slice(0, 8)
+        : locationEvents.filter((item) => item.contentType === "sports").slice(0, 8),
+    [discoverFeed?.trending?.sports, locationEvents, selectedLocation]
   );
 
   const hasSlides = heroSlides.length > 0;

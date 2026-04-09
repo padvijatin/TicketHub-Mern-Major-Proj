@@ -1,8 +1,10 @@
 const Event = require("../models/event-model");
+const User = require("../models/user-model");
 const Wishlist = require("../models/wishlist-model");
 const Review = require("../models/review-model");
 const { cloudinaryAssetExists } = require("../config/cloudinary");
 const { getSeatLockSnapshot } = require("../services/seat-lock-service");
+const { getTopSignalKeys, incrementUserInterestSignals, sanitizeSignalKey } = require("../services/recommendation-service");
 const { getAuthorizationToken, resolveUserFromToken } = require("../services/socket-auth");
 const { buildZoneSeatIds, getZoneAvailability } = require("../utils/seat-layout");
 
@@ -385,6 +387,9 @@ const serializeEvent = (event, interestedCountMap = {}, reviewSummaryMap = {}, s
     averageRating: reviewSummary.averageRating,
     totalRatings: reviewSummary.totalRatings,
     interestedCount: Number(interestedCountMap[eventId] || 0),
+    viewCount: Math.max(0, Number(event.viewCount) || 0),
+    bookingCount: Math.max(0, Number(event.bookingCount) || 0),
+    lastViewedAt: event.lastViewedAt || null,
     poster: event.poster,
     cta: contentType === "movie" ? "Book Movie" : contentType === "sports" ? "Get Sports Tickets" : "Book Event",
     to: routeByType[contentType],
@@ -473,6 +478,28 @@ const getEventById = async (req, res) => {
       buildReviewSummaryMap([event]),
       resolveUserFromToken(getAuthorizationToken(req.headers)),
     ]);
+
+    await Event.updateOne(
+      { _id: event._id },
+      {
+        $inc: { viewCount: 1 },
+        $set: { lastViewedAt: new Date() },
+      }
+    );
+
+    event.viewCount = Math.max(0, Number(event.viewCount || 0)) + 1;
+    event.lastViewedAt = new Date();
+
+    if (viewer?._id) {
+      await incrementUserInterestSignals({
+        userId: viewer._id,
+        category: event.category,
+        city: event.city,
+        contentType: detectContentType(event.category),
+        weight: 1,
+      });
+    }
+
     const seatLocks = getSeatLockSnapshot(event._id.toString(), viewer?._id?.toString?.() || "");
 
     return res.status(200).json({
@@ -480,6 +507,149 @@ const getEventById = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: "Unable to load event right now" });
+  }
+};
+
+const buildRecommendedEvents = ({ events = [], preferredCategories = [], preferredCities = [], preferredTypes = [] } = {}) =>
+  [...events].sort((left, right) => {
+    const leftCategory = sanitizeSignalKey(left.category);
+    const rightCategory = sanitizeSignalKey(right.category);
+    const leftCity = sanitizeSignalKey(left.city);
+    const rightCity = sanitizeSignalKey(right.city);
+    const leftType = sanitizeSignalKey(detectContentType(left.category));
+    const rightType = sanitizeSignalKey(detectContentType(right.category));
+
+    const leftScore =
+      (preferredCategories.includes(leftCategory) ? 6 : 0) +
+      (preferredCities.includes(leftCity) ? 4 : 0) +
+      (preferredTypes.includes(leftType) ? 5 : 0) +
+      Math.max(0, Number(left.bookingCount || 0)) * 2 +
+      Math.max(0, Number(left.viewCount || 0));
+
+    const rightScore =
+      (preferredCategories.includes(rightCategory) ? 6 : 0) +
+      (preferredCities.includes(rightCity) ? 4 : 0) +
+      (preferredTypes.includes(rightType) ? 5 : 0) +
+      Math.max(0, Number(right.bookingCount || 0)) * 2 +
+      Math.max(0, Number(right.viewCount || 0));
+
+    return rightScore - leftScore;
+  });
+
+const buildPopularEvents = (events = []) =>
+  [...events].sort(
+    (left, right) =>
+      Math.max(0, Number(right.bookingCount || 0)) * 3 +
+      Math.max(0, Number(right.viewCount || 0)) -
+      (Math.max(0, Number(left.bookingCount || 0)) * 3 + Math.max(0, Number(left.viewCount || 0)))
+  );
+
+const buildTrendingEvents = (events = []) =>
+  [...events].sort((left, right) => {
+    const now = Date.now();
+    const leftCreatedHours = Math.max(1, (now - new Date(left.createdAt || now).getTime()) / (1000 * 60 * 60));
+    const rightCreatedHours = Math.max(1, (now - new Date(right.createdAt || now).getTime()) / (1000 * 60 * 60));
+    const leftLastViewedHours = left.lastViewedAt ? Math.max(1, (now - new Date(left.lastViewedAt).getTime()) / (1000 * 60 * 60)) : 240;
+    const rightLastViewedHours = right.lastViewedAt ? Math.max(1, (now - new Date(right.lastViewedAt).getTime()) / (1000 * 60 * 60)) : 240;
+
+    const leftScore =
+      Math.max(0, Number(left.viewCount || 0)) * 2.2 +
+      Math.max(0, Number(left.bookingCount || 0)) * 2.8 +
+      200 / leftCreatedHours +
+      120 / leftLastViewedHours;
+    const rightScore =
+      Math.max(0, Number(right.viewCount || 0)) * 2.2 +
+      Math.max(0, Number(right.bookingCount || 0)) * 2.8 +
+      200 / rightCreatedHours +
+      120 / rightLastViewedHours;
+
+    return rightScore - leftScore;
+  });
+
+const splitByContentType = (events = []) =>
+  events.reduce(
+    (accumulator, event) => {
+      const type = detectContentType(event.category);
+      accumulator[type].push(event);
+      return accumulator;
+    },
+    { movie: [], event: [], sports: [] }
+  );
+
+const getDiscoverFeed = async (req, res) => {
+  try {
+    const viewer = await resolveUserFromToken(getAuthorizationToken(req.headers));
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const allEvents = await Event.find({
+      isActive: true,
+      status: "approved",
+      date: { $gte: now },
+    })
+      .sort({ date: 1, createdAt: -1 })
+      .limit(180);
+
+    if (!allEvents.length) {
+      return res.status(200).json({
+        recommended: { movies: [], events: [], sports: [] },
+        popular: { movies: [], events: [], sports: [] },
+        trending: { movies: [], events: [], sports: [] },
+      });
+    }
+
+    await syncEventPosterStateForList(allEvents);
+    await Promise.all(
+      allEvents.map(async (event) => {
+        const previousState = event.toObject({ depopulate: true });
+        const syncedState = syncEventSeatState(event);
+        if (hasSeatStateChanged(previousState, syncedState)) {
+          await event.save();
+        }
+      })
+    );
+
+    const [interestedCountMap, reviewSummaryMap, viewerUser] = await Promise.all([
+      buildInterestedCountMap(allEvents),
+      buildReviewSummaryMap(allEvents),
+      viewer?._id ? User.findById(viewer._id).select("interestSignals").lean() : Promise.resolve(null),
+    ]);
+
+    const serialized = allEvents.map((event) => serializeEvent(event.toObject(), interestedCountMap, reviewSummaryMap, {}));
+    const topCategories = getTopSignalKeys(viewerUser?.interestSignals?.categoryScores || {}, 5);
+    const topCities = getTopSignalKeys(viewerUser?.interestSignals?.cityScores || {}, 5);
+    const topTypes = getTopSignalKeys(viewerUser?.interestSignals?.contentTypeScores || {}, 3);
+
+    const popular = splitByContentType(buildPopularEvents(serialized));
+    const trending = splitByContentType(buildTrendingEvents(serialized));
+    const recommended = splitByContentType(
+      buildRecommendedEvents({
+        events: serialized,
+        preferredCategories: topCategories,
+        preferredCities: topCities,
+        preferredTypes: topTypes,
+      })
+    );
+
+    return res.status(200).json({
+      recommended: {
+        movies: recommended.movie.slice(0, 10),
+        events: recommended.event.slice(0, 10),
+        sports: recommended.sports.slice(0, 10),
+      },
+      popular: {
+        movies: popular.movie.slice(0, 10),
+        events: popular.event.slice(0, 10),
+        sports: popular.sports.slice(0, 10),
+      },
+      trending: {
+        movies: trending.movie.slice(0, 10),
+        events: trending.event.slice(0, 10),
+        sports: trending.sports.slice(0, 10),
+      },
+    });
+  } catch (error) {
+    console.error("discover-feed-failed", error);
+    return res.status(500).json({ message: "Unable to load recommendations right now" });
   }
 };
 
@@ -519,6 +689,7 @@ const rateEvent = async (req, res) => {
 };
 
 module.exports = {
+  getDiscoverFeed,
   getEvents,
   getEventById,
   rateEvent,

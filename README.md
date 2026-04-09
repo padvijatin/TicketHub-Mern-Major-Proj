@@ -1,24 +1,31 @@
 # TicketHub MERN Project
 
-TicketHub is a full-stack MERN ticket booking project with a React + Vite frontend and an Express + MongoDB backend. The current build includes a working authentication flow, shared site layout, Tailwind CSS styling, protected user fetch, and scaffolded pages for movies, sports, events, admin, about, and contact.
+TicketHub is a full-stack MERN ticketing platform with booking, seat locking, payments, ticket delivery, admin tools, wishlist, and recommendation rails. The app runs with a React + Vite frontend and an Express + MongoDB backend.
 
 ## Current status
 
-- Frontend is running on React 19, Vite 7, React Router 7, Tailwind CSS 4, Axios, and React Toastify.
-- Backend is running on Express 5, MongoDB with Mongoose, JWT authentication, bcrypt password hashing, and Zod validation.
-- Register, login, logout, and authenticated user fetch are implemented end to end.
-- Main content routes exist in the UI, but most non-auth pages are still placeholders at this stage.
+- Frontend: React 19, Vite 7, React Router 7, Tailwind CSS 4, Axios, React Query, Swiper, React Toastify.
+- Backend: Express 5, MongoDB + Mongoose, JWT auth, bcrypt, Zod validation, Razorpay, Nodemailer, Cloudinary, Puppeteer.
+- Authentication, event discovery, booking + payment, ticket generation + email, admin management, and user booking history are all implemented.
 
-## Features
+## Core features
 
-- User registration with username, email, phone, and password
-- User login with JWT-based authentication
-- Password hashing with `bcrypt`
-- Protected `/api/auth/user` route using bearer tokens
-- Logout endpoint and frontend auth state cleanup
-- Shared navbar and footer with logged-in state handling
-- Tailwind CSS v4 setup using the official Vite plugin
-- Toast notifications for auth success and error states
+- JWT auth with register, login, logout, and protected user fetch
+- Event listing with content-type routing (movies, sports, events) and location-aware filtering
+- Seat-zone booking flow with seat locks and booking confirmation
+- Razorpay payment verification and booking finalization
+- Ticket email pipeline:
+  - payment success
+  - ticket image generation/capture
+  - Cloudinary upload
+  - email attachment + download link
+- Booking history and live ticket view with QR
+- Wishlist with add/remove/sync
+- Admin panel for events, users, bookings, coupons
+- Recommendation feed:
+  - popular (bookings/views)
+  - trending (recent + high engagement)
+  - recommended (user interest signals: category/city/type)
 
 ## Tech stack
 
@@ -63,14 +70,17 @@ TicketHub/
 - `/login`
 - `/logout`
 
-## Backend API
+## Backend APIs
 
-Base URL: `http://localhost:5000/api/auth`
+Base API URL: `http://localhost:5000/api`
 
-- `POST /register` creates a user and returns a token
-- `POST /login` validates credentials and returns a token
-- `GET /user` returns the logged-in user for a valid bearer token
-- `POST /logout` accepts a valid bearer token and returns a success message
+- Auth: `/auth/*`
+- Events: `/events/*`
+- Bookings: `/bookings/*`
+- Payment: `/payment/*`
+- Wishlist: `/wishlist/*`
+- Coupons: `/coupons/*`
+- Admin: `/admin/*`
 
 ## Environment variables
 
@@ -82,6 +92,17 @@ Required server variables:
 - `MONGODB_URI=your_mongodb_connection_string`
 - `JWT_SECRET=your_secret_key`
 - `CLIENT_URL=http://localhost:5173,http://localhost:5174`
+- `RAZORPAY_KEY_ID=...`
+- `RAZORPAY_KEY_SECRET=...`
+- `SMTP_HOST=...`
+- `SMTP_PORT=587`
+- `SMTP_SECURE=false`
+- `SMTP_USER=...`
+- `SMTP_PASS=...`
+- `SMTP_FROM=...`
+- `CLOUDINARY_CLOUD_NAME=...`
+- `CLOUDINARY_API_KEY=...`
+- `CLOUDINARY_API_SECRET=...`
 
 Optional client variable:
 
@@ -126,10 +147,10 @@ Backend default URL: `http://localhost:5000`
 
 ## Notes
 
-- Auth tokens are stored in `localStorage` on the client.
-- The backend CORS setup allows localhost development plus any origins listed in `CLIENT_URL`.
-- The user model includes an `isAdmin` flag, but there is not yet a dedicated admin-only backend module.
-- Most content pages currently act as placeholders and are ready for the next feature pass.
+- Auth tokens are stored in `localStorage`.
+- CORS allows localhost + origins listed in `CLIENT_URL`.
+- Event popularity uses persisted event metrics (`viewCount`, `bookingCount`).
+- Personalized recommendations use stored user interest signals.
 
 ## Available scripts
 
@@ -147,4 +168,4 @@ In `server`:
 
 ## Authoring direction
 
-This repository currently focuses on the core authentication flow and the base website shell. The next logical milestone would be building real ticket listings, booking flows, user dashboards, and admin management screens on top of the existing auth foundation.
+Current baseline supports production-style booking and ticket delivery. Next milestones can focus on analytics dashboards, notification queueing, and recommendation quality tuning.

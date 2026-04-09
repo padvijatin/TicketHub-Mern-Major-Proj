@@ -1,6 +1,6 @@
 # TicketHub Client
 
-This is the frontend for TicketHub. It is built with React and Vite, styled with Tailwind CSS v4, and connected to the backend auth API with Axios.
+This is the frontend for TicketHub. It includes discovery rails, booking, payment confirmation flows, ticket pages, wishlist, and admin management screens.
 
 ## Stack
 
@@ -9,6 +9,8 @@ This is the frontend for TicketHub. It is built with React and Vite, styled with
 - React Router DOM 7
 - Tailwind CSS 4
 - Axios
+- React Query
+- Swiper
 - React Toastify
 
 ## Run locally
@@ -52,17 +54,18 @@ If `VITE_API_URL` is not provided, the app uses `http://localhost:5000/api/auth`
 
 ## Current frontend coverage
 
-- Responsive navbar and footer
+- Responsive navbar/footer and shared layout
 - Auth context with token persistence in `localStorage`
-- Registration form
-- Login form
-- Logout flow
+- Home discovery rails:
+  - recommended movies/events/sports
+  - popular movies/events
+  - top games and sports events
+- Event detail and seat selection booking flow
+- Payment confirmation and booking history pages
+- Live ticket view with QR and status chips
+- Wishlist integration
+- Admin UI for events, users, bookings, coupons
 - Toast-based success and error messaging
-
-## Current limitations
-
-- The non-auth content pages are still placeholders
-- Booking flows, search, and admin dashboard features are not implemented yet
 
 ## Styling note
 

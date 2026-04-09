@@ -1,32 +1,40 @@
 # TicketHub Changes
 
-## Wishlist
+## Booking and Ticket Delivery
 
-- Added a real wishlist flow on the client with a dedicated wishlist page.
-- Added a wishlist icon in the navbar and connected card heart actions to the shared wishlist state.
-- Connected wishlist APIs on the backend and added a dedicated `wishlist` MongoDB model/collection.
-- Added server-side wishlist add, remove, clear, fetch, and sync handling.
+- Reworked payment-to-ticket flow to backend-first delivery.
+- Added backend ticket image generation/capture with Puppeteer.
+- Added Cloudinary upload and persistent ticket URL storage in bookings.
+- Added Nodemailer ticket email with attachment and download CTA.
+- Added retry handling for transient email/upload failures.
+- Added cleanup for local temp ticket files and Cloudinary rollback paths.
+- Removed Base64 dependency from post-payment ticket email flow.
 
-## Home Page
+## Event Discovery and Recommendations
 
-- Updated the home page to use swipeable rails with existing shared cards.
-- Added separate recommendation rails for movies, events, and sports.
-- Added `Popular Movies`, `Popular Events`, and `Top Games & Sport Events` sections.
-- Added `See all` links for each rail so navigation points to the correct page.
+- Added event engagement metrics (`viewCount`, `bookingCount`, `lastViewedAt`).
+- Added user interest signals (`category`, `city`, `content type`) in user profile.
+- Added discover feed endpoint with:
+  - popular rails (bookings + views)
+  - trending rails (recent + high engagement)
+  - recommended rails (interest-based ranking)
+- Wired frontend home rails to backend discover feed with fallback logic.
 
-## Cards
+## Ticket and Booking UI
 
-- Unified shared card sizing so movies, sports, and events render with the same dimensions.
-- Fixed swiper slide wrappers on the home page so rail cards keep equal height.
-- Added a compact real-world rating display using Lucide React: one star icon and numeric rating.
+- Updated ticket page status chips to read real booking/payment values from DB.
+- Improved ticket history/view consistency and runtime state messaging.
 
-## Routing and Shared State
+## Admin Data Consistency
 
-- Registered the wishlist route in the client router.
-- Wrapped the app with the wishlist provider.
-- Kept the existing card design and reused shared components instead of introducing a new card layout.
+- Improved admin booking delete flow:
+  - seat release and event seat-state sync
+  - booking count decrement
+  - coupon usage rollback
+  - payment booking reference cleanup
+  - Cloudinary ticket image cleanup
 
-## Verification
+## Validation
 
-- Verified client builds successfully with `npm run build`.
-- Verified updated server files with `node --check`.
+- Verified lint and module load checks on updated backend and frontend files.
+- Verified live resend flows and DB ticket status updates during implementation.

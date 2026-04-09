@@ -59,6 +59,29 @@ export const getEvents = async (params = {}) => {
   return (response.data.events || []).map(normalizeEvent);
 };
 
+export const getDiscoverFeed = async (authorizationToken = "") => {
+  const response = await axios.get(`${eventsApiUrl}/discover/feed`, buildAuthConfig(authorizationToken));
+  const normalizeRail = (items = []) => items.map(normalizeEvent).filter(Boolean);
+
+  return {
+    recommended: {
+      movies: normalizeRail(response.data?.recommended?.movies || []),
+      events: normalizeRail(response.data?.recommended?.events || []),
+      sports: normalizeRail(response.data?.recommended?.sports || []),
+    },
+    popular: {
+      movies: normalizeRail(response.data?.popular?.movies || []),
+      events: normalizeRail(response.data?.popular?.events || []),
+      sports: normalizeRail(response.data?.popular?.sports || []),
+    },
+    trending: {
+      movies: normalizeRail(response.data?.trending?.movies || []),
+      events: normalizeRail(response.data?.trending?.events || []),
+      sports: normalizeRail(response.data?.trending?.sports || []),
+    },
+  };
+};
+
 export const getEventById = async (eventId, authorizationToken = "") => {
   const response = await axios.get(`${eventsApiUrl}/${eventId}`, buildAuthConfig(authorizationToken));
   return normalizeEvent(response.data.event || null);
@@ -133,6 +156,19 @@ export const getBookingTicket = async (bookingId) => {
   return {
     booking: response.data.booking || null,
     event: normalizeEvent(response.data.event || null),
+  };
+};
+
+export const deliverBookingTicket = async ({ bookingId, authorizationToken = "" }) => {
+  const response = await axios.post(
+    `${bookingsApiUrl}/${bookingId}/deliver`,
+    {},
+    buildAuthConfig(authorizationToken)
+  );
+
+  return {
+    ...response.data,
+    booking: response.data.booking || null,
   };
 };
 

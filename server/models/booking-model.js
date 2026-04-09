@@ -122,6 +122,20 @@ const bookingSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    ticketImageUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    ticketEmailStatus: {
+      type: String,
+      enum: ["pending", "sent", "failed"],
+      default: "pending",
+    },
+    ticketEmailSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     collection: "bookings",

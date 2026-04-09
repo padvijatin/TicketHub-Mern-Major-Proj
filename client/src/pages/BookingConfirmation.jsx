@@ -30,7 +30,7 @@ export const BookingConfirmation = () => {
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
   const paymentMethod = bookingState.paymentMethod || "razorpay";
-  const booking = bookingState.booking || null;
+  const [booking, setBooking] = useState(() => bookingState.booking || null);
   const pricing = bookingState.pricing || {
     cartAmount: booking?.originalAmount || bookingState.total || 0,
     discountAmount: booking?.discountAmount || 0,
@@ -39,6 +39,7 @@ export const BookingConfirmation = () => {
   const bookingId = booking?.bookingId || "";
   const qrCodeDataUrl = booking?.qrCodeDataUrl || "";
   const ticketUrl = booking?.qrPayload || (bookingId ? `${window.location.origin}/ticket/${bookingId}` : window.location.href);
+  const ticketImageUrl = booking?.ticketImageUrl || "";
   const paymentRef = booking?.paymentId || booking?.paymentReference || "Captured";
   const { data: event, isLoading } = useQuery({
     queryKey: ["event", id],
@@ -47,11 +48,21 @@ export const BookingConfirmation = () => {
   });
 
   const handleDownloadTicket = async () => {
-    if (!ticketRef.current) return;
     if (!bookingId) {
       toast.error("Booking id is missing. Please retry from Payment.");
       return;
     }
+
+    if (ticketImageUrl) {
+      const link = document.createElement("a");
+      link.href = ticketImageUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+      return;
+    }
+
+    if (!ticketRef.current) return;
 
     setIsDownloading(true);
     try {
@@ -285,6 +296,10 @@ export const BookingConfirmation = () => {
             Share
           </button>
         </div>
+
+        {booking?.ticketEmailSentAt ? (
+          <p className="text-center text-[1.18rem] text-[#15803d]">Ticket email sent with attachment and download link.</p>
+        ) : null}
 
         <div className="text-center">
           <Link to="/" className="text-[1.35rem] font-bold text-[var(--color-primary)]">

@@ -56,6 +56,27 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    interestSignals: {
+      categoryScores: {
+        type: Map,
+        of: Number,
+        default: {},
+      },
+      cityScores: {
+        type: Map,
+        of: Number,
+        default: {},
+      },
+      contentTypeScores: {
+        type: Map,
+        of: Number,
+        default: {},
+      },
+      lastInteractedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,

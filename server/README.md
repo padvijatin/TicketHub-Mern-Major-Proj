@@ -1,6 +1,6 @@
 # TicketHub Server
 
-This backend powers the TicketHub authentication flow. It exposes a small Express API backed by MongoDB and secures protected routes with JWT bearer tokens.
+This backend powers auth, event discovery, bookings, payments, ticket delivery, wishlist, coupons, and admin operations for TicketHub.
 
 ## Stack
 
@@ -9,6 +9,10 @@ This backend powers the TicketHub authentication flow. It exposes a small Expres
 - JWT
 - bcrypt
 - Zod
+- Razorpay
+- Nodemailer
+- Cloudinary
+- Puppeteer
 
 ## Run locally
 
@@ -35,12 +39,15 @@ You can also copy the values from `server/.env.example` and replace them with yo
 
 ## API routes
 
-Base path: `/api/auth`
+Base path: `/api`
 
-- `POST /register`
-- `POST /login`
-- `GET /user`
-- `POST /logout`
+- `/auth` - register, login, user fetch, logout
+- `/events` - listing, detail, ratings, discover feed
+- `/bookings` - ticket fetch/delivery + user booking list
+- `/payment` - Razorpay create order and verify
+- `/wishlist` - add/remove/sync wishlist items
+- `/coupons` - coupon validation flow
+- `/admin` - dashboard, events, users, bookings, coupons
 
 ## Request summary
 
@@ -79,4 +86,11 @@ Authorization: Bearer <jwt-token>
 
 ## Current scope
 
-This server currently focuses on account auth and user identity lookup. Ticket inventory, bookings, payments, and admin management APIs have not been added yet.
+Current scope includes full booking lifecycle:
+
+- seat locking and booking finalization
+- payment verification
+- ticket image generation and Cloudinary storage
+- email ticket delivery
+- recommendation scoring from views/bookings/user interest
+- admin moderation and collection cleanup operations
