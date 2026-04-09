@@ -66,6 +66,11 @@ const formatBookedOn = (value) => {
   });
 };
 
+const sanitizeSummaryLabel = (value) =>
+  String(value || "")
+    .replace(/\uFFFD/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 const BookingCard = ({ booking }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const fallbackClassName = fallbackPosterClassByType[booking.event?.contentType] || fallbackPosterClassByType.event;
@@ -157,7 +162,7 @@ const BookingCard = ({ booking }) => {
           <div className="mt-[1.8rem] flex flex-wrap items-center gap-[1rem] text-[1.2rem] text-[var(--color-text-secondary)]">
             {booking.summary?.length ? (
               <span className="rounded-full border border-[rgba(28,28,28,0.08)] bg-[rgba(28,28,28,0.02)] px-[1rem] py-[0.65rem]">
-                {booking.summary.map((item) => `${item.label} x${item.count}`).join(" • ")}
+                {booking.summary.map((item) => `${sanitizeSummaryLabel(item.label)} x${item.count}`).join(" | ")}
               </span>
             ) : null}
             {booking.couponCode ? (
