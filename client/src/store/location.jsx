@@ -409,7 +409,7 @@ export const LocationProvider = ({ children }) => {
                 try {
                   const city = await reverseGeocode(position.coords.latitude, position.coords.longitude);
                   resolve(city);
-                } catch (_error) {
+                } catch {
                   resolve({
                     name: "",
                     state: "",

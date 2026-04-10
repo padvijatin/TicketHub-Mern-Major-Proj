@@ -30,7 +30,7 @@ export const BookingConfirmation = () => {
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
   const paymentMethod = bookingState.paymentMethod || "razorpay";
-  const [booking, setBooking] = useState(() => bookingState.booking || null);
+  const [booking] = useState(() => bookingState.booking || null);
   const pricing = bookingState.pricing || {
     cartAmount: booking?.originalAmount || bookingState.total || 0,
     discountAmount: booking?.discountAmount || 0,

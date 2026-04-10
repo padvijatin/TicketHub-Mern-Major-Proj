@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }) => {
         );
       }
     } catch {
+      // Ignore logout failures and clear local auth state anyway.
     } finally {
       clearAuth();
     }

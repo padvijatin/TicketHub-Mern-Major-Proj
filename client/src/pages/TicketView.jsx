@@ -112,25 +112,29 @@ const getBookingStatusMeta = (paymentStatus = "") => {
   };
 };
 
-const DetailCard = ({ icon: Icon, label, value, accent = false }) => (
-  <div
-    className={`rounded-[1.8rem] border p-[1.4rem] ${
-      accent
-        ? "border-[rgba(248,68,100,0.16)] bg-[rgba(248,68,100,0.08)]"
-        : "border-[rgba(28,28,28,0.08)] bg-[rgba(28,28,28,0.03)]"
-    }`}
-  >
-    <div className="flex items-start gap-[0.85rem]">
-      <span className="mt-[0.1rem] inline-flex h-[2.4rem] w-[2.4rem] items-center justify-center rounded-full bg-white text-[var(--color-primary)] shadow-[0_10px_24px_rgba(28,28,28,0.08)]">
-        <Icon className="h-[1.35rem] w-[1.35rem]" />
-      </span>
-      <div>
-        <p className="text-[1.08rem] uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">{label}</p>
-        <p className="mt-[0.45rem] text-[1.4rem] font-bold leading-[1.45] text-[var(--color-text-primary)]">{value}</p>
+const DetailCard = ({ icon, label, value, accent = false }) => {
+  const IconComponent = icon;
+
+  return (
+    <div
+      className={`rounded-[1.8rem] border p-[1.4rem] ${
+        accent
+          ? "border-[rgba(248,68,100,0.16)] bg-[rgba(248,68,100,0.08)]"
+          : "border-[rgba(28,28,28,0.08)] bg-[rgba(28,28,28,0.03)]"
+      }`}
+    >
+      <div className="flex items-start gap-[0.85rem]">
+        <span className="mt-[0.1rem] inline-flex h-[2.4rem] w-[2.4rem] items-center justify-center rounded-full bg-white text-[var(--color-primary)] shadow-[0_10px_24px_rgba(28,28,28,0.08)]">
+          <IconComponent className="h-[1.35rem] w-[1.35rem]" />
+        </span>
+        <div>
+          <p className="text-[1.08rem] uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">{label}</p>
+          <p className="mt-[0.45rem] text-[1.4rem] font-bold leading-[1.45] text-[var(--color-text-primary)]">{value}</p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const TicketView = () => {
   const { bookingId } = useParams();
