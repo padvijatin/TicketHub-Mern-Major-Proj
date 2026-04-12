@@ -672,7 +672,7 @@ const rateEvent = async (req, res) => {
         $set: { value: ratingValue },
         $setOnInsert: { event: event._id, user: req.user._id },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     const reviews = await Review.find({ event: event._id }).select("value").lean();
@@ -699,4 +699,3 @@ module.exports = {
   syncEventPosterStateForList,
   syncEventSeatState,
 };
-

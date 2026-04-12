@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../store/auth.jsx";
+import { useAuth } from "../../store/auth-context.jsx";
 import { getAdminDashboard } from "../../utils/adminApi.js";
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;

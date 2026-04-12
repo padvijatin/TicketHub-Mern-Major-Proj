@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Copy, TicketPercent, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { getCoupons } from "../utils/couponApi.js";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 
 export const CouponModal = ({ isOpen, onClose }) => {
   const { authorizationToken } = useAuth();

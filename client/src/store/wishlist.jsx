@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useAuth } from "./auth.jsx";
-
-const WishlistContext = createContext(null);
+import { useAuth } from "./auth-context.jsx";
+import { WishlistContext } from "./wishlist-context.jsx";
 const STORAGE_KEY = "tickethub_wishlist";
 const authApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/auth";
 const apiBaseUrl = authApiUrl.replace(/\/auth\/?$/, "");
@@ -199,5 +198,3 @@ export const WishlistProvider = ({ children }) => {
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
 };
-
-export const useWishlist = () => useContext(WishlistContext);

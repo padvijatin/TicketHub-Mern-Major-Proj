@@ -1,8 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/auth";
-const AuthContext = createContext(null);
+import { API_BASE_URL, AuthContext } from "./auth-context.jsx";
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -65,7 +63,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     if (!authorizationToken) {
       setIsLoading(false);
       return;
@@ -83,11 +81,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authorizationToken]);
 
   useEffect(() => {
     fetchUser();
-  }, [authorizationToken]);
+  }, [fetchUser]);
 
   return (
     <AuthContext.Provider
@@ -110,5 +108,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

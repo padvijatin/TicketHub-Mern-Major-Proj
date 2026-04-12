@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user-model");
+const TokenBlocklist = require("../models/token-blocklist-model");
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.header("Authorization");
@@ -12,6 +13,11 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const blockedToken = await TokenBlocklist.findOne({ token }).select("_id").lean();
+
+    if (blockedToken) {
+      return res.status(401).json({ message: "Token has been revoked" });
+    }
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {

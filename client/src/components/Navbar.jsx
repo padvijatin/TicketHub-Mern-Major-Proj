@@ -5,8 +5,8 @@ import { CouponModal } from "./CouponModal.jsx";
 import { LocationPicker } from "./LocationPicker.jsx";
 import { SearchModal } from "./SearchModal.jsx";
 import { BrandLogo } from "./BrandLogo.jsx";
-import { useAuth } from "../store/auth.jsx";
-import { useWishlist } from "../store/wishlist.jsx";
+import { useAuth } from "../store/auth-context.jsx";
+import { useWishlist } from "../store/wishlist-context.jsx";
 
 const buildProfileInitial = (userName = "", email = "") => {
   const seed = String(userName || email || "U").trim();
@@ -14,10 +14,10 @@ const buildProfileInitial = (userName = "", email = "") => {
 };
 
 export const Navbar = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileMenuState, setMobileMenuState] = useState({ isOpen: false, pathname: "" });
   const [searchOpen, setSearchOpen] = useState(false);
   const [couponOpen, setCouponOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileMenuState, setProfileMenuState] = useState({ isOpen: false, pathname: "" });
   const location = useLocation();
   const navigate = useNavigate();
   const profilePanelRef = useRef(null);
@@ -74,11 +74,8 @@ export const Navbar = () => {
   const profileInitial = useMemo(() => buildProfileInitial(userName, user?.email), [user?.email, userName]);
   const greeting = userName ? `Hi, ${userName}` : "Hi, User";
   const profileEmail = user?.email || "Signed in to TicketHub";
-
-  useEffect(() => {
-    setMobileOpen(false);
-    setProfileOpen(false);
-  }, [location.pathname]);
+  const mobileOpen = mobileMenuState.isOpen && mobileMenuState.pathname === location.pathname;
+  const profileOpen = profileMenuState.isOpen && profileMenuState.pathname === location.pathname;
 
   useEffect(() => {
     if (!profileOpen) {
@@ -86,8 +83,8 @@ export const Navbar = () => {
     }
 
     const handlePointerDown = (event) => {
-      if (!profilePanelRef.current?.contains(event.target)) {
-        setProfileOpen(false);
+        if (!profilePanelRef.current?.contains(event.target)) {
+        setProfileMenuState((current) => ({ ...current, isOpen: false }));
       }
     };
 
@@ -96,12 +93,12 @@ export const Navbar = () => {
   }, [profileOpen]);
 
   const handleOpenBookings = () => {
-    setProfileOpen(false);
+    setProfileMenuState((current) => ({ ...current, isOpen: false }));
     navigate("/bookings");
   };
 
   const handleLogout = () => {
-    setProfileOpen(false);
+    setProfileMenuState((current) => ({ ...current, isOpen: false }));
     navigate("/logout");
   };
 
@@ -111,7 +108,7 @@ export const Navbar = () => {
         <div className="relative w-full px-[2rem]" ref={profilePanelRef}>
           <div className="grid min-h-[7.6rem] grid-cols-[auto_1fr_auto] items-center gap-[1.6rem] max-[980px]:flex max-[980px]:min-h-[7rem] max-[980px]:justify-between">
             <div className="flex min-w-0 items-center gap-[1.2rem]">
-              <BrandLogo to="/" size="md" className="shrink-0" onClick={() => setMobileOpen(false)} />
+                    <BrandLogo to="/" size="md" className="shrink-0" onClick={() => setMobileMenuState((current) => ({ ...current, isOpen: false }))} />
               <div className="max-[980px]:hidden">
                 <LocationPicker />
               </div>
@@ -156,7 +153,12 @@ export const Navbar = () => {
               {isLoggedIn ? (
                 <button
                   type="button"
-                  onClick={() => setProfileOpen((open) => !open)}
+                  onClick={() =>
+                    setProfileMenuState((current) => ({
+                      isOpen: !(current.isOpen && current.pathname === location.pathname),
+                      pathname: location.pathname,
+                    }))
+                  }
                   className={profileButtonClassName}
                   aria-label="Open profile"
                   aria-expanded={profileOpen}
@@ -176,7 +178,12 @@ export const Navbar = () => {
               {isLoggedIn ? (
                 <button
                   type="button"
-                  onClick={() => setProfileOpen((open) => !open)}
+                  onClick={() =>
+                    setProfileMenuState((current) => ({
+                      isOpen: !(current.isOpen && current.pathname === location.pathname),
+                      pathname: location.pathname,
+                    }))
+                  }
                   className={profileButtonClassName}
                   aria-label="Open profile"
                   aria-expanded={profileOpen}
@@ -188,7 +195,12 @@ export const Navbar = () => {
               <button
                 type="button"
                 className="inline-flex cursor-pointer items-center justify-center rounded-full border border-[rgba(248,68,100,0.2)] bg-[var(--color-primary)] px-[1.6rem] py-[0.95rem] text-[1.4rem] font-bold text-[var(--color-text-light)]"
-                onClick={() => setMobileOpen((open) => !open)}
+                onClick={() =>
+                  setMobileMenuState((current) => ({
+                    isOpen: !(current.isOpen && current.pathname === location.pathname),
+                    pathname: location.pathname,
+                  }))
+                }
                 aria-label="Toggle menu"
                 aria-expanded={mobileOpen}
               >
@@ -247,12 +259,12 @@ export const Navbar = () => {
         {mobileOpen && (
           <div className="border-t border-[rgba(28,28,28,0.08)] bg-[rgba(255,255,255,0.96)]">
             <nav className="grid gap-[1rem] px-[2rem] py-[1.6rem] pb-[2rem]">
-              <LocationPicker mobile onSelect={() => setMobileOpen(false)} />
+              <LocationPicker mobile onSelect={() => setMobileMenuState((current) => ({ ...current, isOpen: false }))} />
               <button
                 type="button"
                 onClick={() => {
                   setCouponOpen(true);
-                  setMobileOpen(false);
+                  setMobileMenuState((current) => ({ ...current, isOpen: false }));
                 }}
                 className="flex items-center gap-[0.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] px-[1.4rem] py-[1.2rem] text-[1.6rem] font-semibold text-[var(--color-text-secondary)] shadow-[var(--shadow-soft)]"
               >
@@ -263,7 +275,7 @@ export const Navbar = () => {
                 type="button"
                 onClick={() => {
                   setSearchOpen(true);
-                  setMobileOpen(false);
+                  setMobileMenuState((current) => ({ ...current, isOpen: false }));
                 }}
                 className="flex items-center gap-[0.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] px-[1.4rem] py-[1.2rem] text-[1.6rem] font-semibold text-[var(--color-text-secondary)] shadow-[var(--shadow-soft)]"
               >
@@ -274,11 +286,14 @@ export const Navbar = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setProfileOpen(true);
-                    setMobileOpen(false);
+                    setProfileMenuState({
+                      isOpen: true,
+                      pathname: location.pathname,
+                    });
+                    setMobileMenuState((current) => ({ ...current, isOpen: false }));
                   }}
-                className="flex items-center justify-between rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] px-[1.4rem] py-[1.2rem] text-[1.6rem] font-semibold text-[var(--color-text-secondary)] shadow-[var(--shadow-soft)]"
-              >
+                  className="flex items-center justify-between rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] px-[1.4rem] py-[1.2rem] text-[1.6rem] font-semibold text-[var(--color-text-secondary)] shadow-[var(--shadow-soft)]"
+                >
                   <span className="flex min-w-0 items-center gap-[0.8rem]">
                     <span className="flex h-[3.4rem] w-[3.4rem] items-center justify-center rounded-full bg-[linear-gradient(135deg,#111827_0%,#1f2937_100%)] text-[1.45rem] font-bold text-white">
                       {profileInitial}
@@ -293,7 +308,7 @@ export const Navbar = () => {
                   key={link.to}
                   to={link.to}
                   end={link.end}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => setMobileMenuState((current) => ({ ...current, isOpen: false }))}
                   className={mobileLinkClassName}
                 >
                   {link.label}

@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
-
-export const fallbackPosterImage = "/fallback.jpg";
-
-export const resolvePosterSource = (value = "") => String(value || "").trim() || fallbackPosterImage;
+import { useState } from "react";
+import { fallbackPosterImage } from "./posterImageUtils.js";
 
 const PosterImage = ({ src = "", alt = "", className = "", fallbackSrc = fallbackPosterImage, onError, ...props }) => {
-  const normalizedSrc = String(src || "").trim();
-  const [imageSrc, setImageSrc] = useState(normalizedSrc || fallbackSrc);
-
-  useEffect(() => {
-    setImageSrc(normalizedSrc || fallbackSrc);
-  }, [fallbackSrc, normalizedSrc]);
+  const normalizedSrc = String(src || "").trim() || fallbackSrc;
+  const [failedSource, setFailedSource] = useState("");
+  const imageSrc = failedSource === normalizedSrc ? fallbackSrc : normalizedSrc;
 
   return (
     <img
@@ -19,8 +13,8 @@ const PosterImage = ({ src = "", alt = "", className = "", fallbackSrc = fallbac
       alt={alt}
       className={className}
       onError={(eventObject) => {
-        if (imageSrc !== fallbackSrc) {
-          setImageSrc(fallbackSrc);
+        if (normalizedSrc !== fallbackSrc) {
+          setFailedSource(normalizedSrc);
         }
 
         onError?.(eventObject);

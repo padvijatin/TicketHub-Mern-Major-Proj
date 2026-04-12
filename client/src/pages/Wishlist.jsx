@@ -1,6 +1,6 @@
 ﻿import { Heart } from "lucide-react";
 import { ListingGrid } from "../components/ListingGrid.jsx";
-import { useWishlist } from "../store/wishlist.jsx";
+import { useWishlist } from "../store/wishlist-context.jsx";
 
 export const Wishlist = () => {
   const { clearWishlist, isLoading, wishlistItems } = useWishlist();

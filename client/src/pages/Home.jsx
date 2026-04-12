@@ -8,9 +8,10 @@ import "swiper/css/navigation";
 import EventCard from "../components/EventCard.jsx";
 import { HeroCarousel } from "../components/HeroCarousel.jsx";
 import PosterImage from "../components/PosterImage.jsx";
-import { useAuth } from "../store/auth.jsx";
-import { useLocationStore, filterItemsByLocation } from "../store/location.jsx";
-import { useWishlist } from "../store/wishlist.jsx";
+import { useAuth } from "../store/auth-context.jsx";
+import { useLocationStore } from "../store/location-context.jsx";
+import { filterItemsByLocation } from "../store/location-utils.js";
+import { useWishlist } from "../store/wishlist-context.jsx";
 import { getDiscoverFeed, getEvents } from "../utils/eventApi.js";
 
 const heroFallbackByType = {

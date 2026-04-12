@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 
 const initialState = {
   email: "",

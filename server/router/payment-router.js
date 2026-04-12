@@ -3,8 +3,14 @@ const { z } = require("zod");
 const paymentController = require("../controllers/payment-controller");
 const authMiddleware = require("../middlewares/auth-middleware");
 const validate = require("../middlewares/validate-middleware");
+const { buildRateLimiter } = require("../middlewares/rate-limit");
 
 const router = express.Router();
+const paymentLimiter = buildRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  message: "Too many payment requests. Please wait and try again.",
+});
 
 const createOrderSchema = z.object({
   eventId: z.string().trim().min(1, "Event id is required"),
@@ -25,7 +31,7 @@ const verifyPaymentSchema = z.object({
   razorpay_signature: z.string().trim().min(1, "Signature is required"),
 });
 
-router.post("/create-order", authMiddleware, validate(createOrderSchema), paymentController.createOrder);
-router.post("/verify", authMiddleware, validate(verifyPaymentSchema), paymentController.verifyPayment);
+router.post("/create-order", paymentLimiter, authMiddleware, validate(createOrderSchema), paymentController.createOrder);
+router.post("/verify", paymentLimiter, authMiddleware, validate(verifyPaymentSchema), paymentController.verifyPayment);
 
 module.exports = router;

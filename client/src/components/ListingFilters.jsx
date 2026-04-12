@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, SlidersHorizontal, X } from "lucide-react";
 
@@ -17,15 +17,10 @@ export const ListingFilters = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeGroupKey, setActiveGroupKey] = useState(groups[0]?.key || "");
-
-  useEffect(() => {
-    if (!groups.some((group) => group.key === activeGroupKey)) {
-      setActiveGroupKey(groups[0]?.key || "");
-    }
-  }, [activeGroupKey, groups]);
+  const resolvedActiveGroupKey = groups.some((group) => group.key === activeGroupKey) ? activeGroupKey : groups[0]?.key || "";
 
   const activeCount = useMemo(() => getActiveCount(activeFilters), [activeFilters]);
-  const activeGroup = groups.find((group) => group.key === activeGroupKey) || groups[0];
+  const activeGroup = groups.find((group) => group.key === resolvedActiveGroupKey) || groups[0];
 
   const quickFilterItems = useMemo(() => {
     if (quickOptions.length) {

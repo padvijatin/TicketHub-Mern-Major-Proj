@@ -1,16 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 import { getSeatSocket } from "../utils/socketClient.js";
 
+const DEFAULT_LOCK_DURATION_MS = 5 * 60 * 1000;
 const uniqueSeatIds = (seatIds = []) => [...new Set((seatIds || []).map((seatId) => String(seatId).trim()).filter(Boolean))];
+const buildSeatStateFromEvent = (event) => ({
+  snapshotKey: JSON.stringify({
+    eventId: String(event?.id || ""),
+    selectedSeatIds: uniqueSeatIds(event?.currentUserLockedSeats),
+    lockedSeatIds: uniqueSeatIds(event?.lockedSeats),
+    bookedSeatIds: uniqueSeatIds(event?.bookedSeats),
+  }),
+  selectedSeatIds: uniqueSeatIds(event?.currentUserLockedSeats),
+  lockedSeatIds: uniqueSeatIds(event?.lockedSeats),
+  bookedSeatIds: uniqueSeatIds(event?.bookedSeats),
+});
 
 export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
   const { authorizationToken, isLoggedIn, user } = useAuth();
-  const [selectedSeatIds, setSelectedSeatIds] = useState(() => uniqueSeatIds(event?.currentUserLockedSeats));
-  const [lockedSeatIds, setLockedSeatIds] = useState(() => uniqueSeatIds(event?.lockedSeats));
-  const [bookedSeatIds, setBookedSeatIds] = useState(() => uniqueSeatIds(event?.bookedSeats));
+  const eventSeatState = buildSeatStateFromEvent(event);
+  const [seatState, setSeatState] = useState(() => eventSeatState);
+  const lockDurationMsRef = useRef(DEFAULT_LOCK_DURATION_MS);
+  const selectedSeatIdsRef = useRef(eventSeatState.selectedSeatIds);
   const [isSocketReady, setIsSocketReady] = useState(false);
+  const activeSeatState = seatState.snapshotKey === eventSeatState.snapshotKey ? seatState : eventSeatState;
+  const { selectedSeatIds, lockedSeatIds, bookedSeatIds } = activeSeatState;
 
   const currentUserId = user?._id || user?.id || "";
   const selectedSeatIdSet = useMemo(() => new Set(selectedSeatIds), [selectedSeatIds]);
@@ -22,10 +37,15 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
   const lockedByOtherSeatIdSet = useMemo(() => new Set(lockedByOtherSeatIds), [lockedByOtherSeatIds]);
 
   useEffect(() => {
-    setSelectedSeatIds(uniqueSeatIds(event?.currentUserLockedSeats));
-    setLockedSeatIds(uniqueSeatIds(event?.lockedSeats));
-    setBookedSeatIds(uniqueSeatIds(event?.bookedSeats));
-  }, [event?.bookedSeats, event?.currentUserLockedSeats, event?.id, event?.lockedSeats]);
+    selectedSeatIdsRef.current = selectedSeatIds;
+  }, [selectedSeatIds]);
+
+  const updateSeatState = useCallback((updater) => {
+    setSeatState((currentState) => {
+      const baseState = currentState.snapshotKey === eventSeatState.snapshotKey ? currentState : eventSeatState;
+      return updater(baseState);
+    });
+  }, [eventSeatState]);
 
   useEffect(() => {
     if (!event?.id) {
@@ -40,8 +60,15 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
           return;
         }
 
-        setSelectedSeatIds(uniqueSeatIds(response.currentUserLockedSeats));
-        setLockedSeatIds(uniqueSeatIds(response.lockedSeatIds));
+        if (response.lockDurationMs) {
+          lockDurationMsRef.current = response.lockDurationMs;
+        }
+
+        updateSeatState((currentState) => ({
+          ...currentState,
+          selectedSeatIds: uniqueSeatIds(response.currentUserLockedSeats),
+          lockedSeatIds: uniqueSeatIds(response.lockedSeatIds),
+        }));
         setIsSocketReady(true);
       });
     };
@@ -51,20 +78,31 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
         return;
       }
 
-      setLockedSeatIds((currentSeatIds) => uniqueSeatIds([...currentSeatIds, seatId]));
-
-      if (String(userId || "") === String(currentUserId || "")) {
-        setSelectedSeatIds((currentSeatIds) => uniqueSeatIds([...currentSeatIds, seatId]));
-      }
+      updateSeatState((currentState) => ({
+        ...currentState,
+        lockedSeatIds: uniqueSeatIds([...currentState.lockedSeatIds, seatId]),
+        selectedSeatIds:
+          String(userId || "") === String(currentUserId || "")
+            ? uniqueSeatIds([...currentState.selectedSeatIds, seatId])
+            : currentState.selectedSeatIds,
+      }));
     };
 
-    const handleSeatReleased = ({ eventId, seatId }) => {
+    const handleSeatReleased = ({ eventId, seatId, reason }) => {
       if (String(eventId) !== String(event.id) || !seatId) {
         return;
       }
 
-      setLockedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
-      setSelectedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
+      if (reason === "expired" && selectedSeatIdsRef.current.includes(seatId)) {
+        const minutes = Math.max(1, Math.round(lockDurationMsRef.current / 60000));
+        toast.info(`Seat lock expired after ${minutes} minute${minutes === 1 ? "" : "s"}. Please reselect.`);
+      }
+
+      updateSeatState((currentState) => ({
+        ...currentState,
+        lockedSeatIds: currentState.lockedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+        selectedSeatIds: currentState.selectedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+      }));
     };
 
     const handleSeatBooked = ({ eventId, seatId }) => {
@@ -72,9 +110,12 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
         return;
       }
 
-      setBookedSeatIds((currentSeatIds) => uniqueSeatIds([...currentSeatIds, seatId]));
-      setLockedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
-      setSelectedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
+      updateSeatState((currentState) => ({
+        ...currentState,
+        bookedSeatIds: uniqueSeatIds([...currentState.bookedSeatIds, seatId]),
+        lockedSeatIds: currentState.lockedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+        selectedSeatIds: currentState.selectedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+      }));
     };
 
     socket.on("connect", joinRoom);
@@ -93,7 +134,7 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
       socket.off("seat-booked", handleSeatBooked);
       setIsSocketReady(false);
     };
-  }, [authorizationToken, currentUserId, event?.id]);
+  }, [authorizationToken, currentUserId, event?.id, updateSeatState]);
 
   const lockSeat = (seatId) => {
     if (!event?.id || !seatId) {
@@ -126,8 +167,15 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
         return;
       }
 
-      setSelectedSeatIds((currentSeatIds) => uniqueSeatIds([...currentSeatIds, seatId]));
-      setLockedSeatIds((currentSeatIds) => uniqueSeatIds([...currentSeatIds, seatId]));
+      if (response.lockDurationMs) {
+        lockDurationMsRef.current = response.lockDurationMs;
+      }
+
+      updateSeatState((currentState) => ({
+        ...currentState,
+        selectedSeatIds: uniqueSeatIds([...currentState.selectedSeatIds, seatId]),
+        lockedSeatIds: uniqueSeatIds([...currentState.lockedSeatIds, seatId]),
+      }));
     });
   };
 
@@ -143,8 +191,11 @@ export const useSeatLocking = ({ event, maxSelectable = 10 }) => {
         return;
       }
 
-      setSelectedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
-      setLockedSeatIds((currentSeatIds) => currentSeatIds.filter((currentSeatId) => currentSeatId !== seatId));
+      updateSeatState((currentState) => ({
+        ...currentState,
+        selectedSeatIds: currentState.selectedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+        lockedSeatIds: currentState.lockedSeatIds.filter((currentSeatId) => currentSeatId !== seatId),
+      }));
     });
   };
 

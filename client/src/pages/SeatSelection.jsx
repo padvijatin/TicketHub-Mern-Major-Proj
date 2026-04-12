@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import { TheaterLayout } from "../components/booking/TheaterLayout.jsx";
 import { StadiumLayout } from "../components/booking/StadiumLayout.jsx";
 import { ExperienceLayout } from "../components/booking/ExperienceLayout.jsx";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 import { getBookingType } from "../utils/bookingData.js";
 import { getEventById } from "../utils/eventApi.js";
 
@@ -18,7 +17,6 @@ const layoutLabels = {
 export const SeatSelection = () => {
   const { id } = useParams();
   const { authorizationToken } = useAuth();
-  const [event, setEvent] = useState(null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["event", id, authorizationToken],
     queryFn: () => getEventById(id, authorizationToken),
@@ -26,12 +24,7 @@ export const SeatSelection = () => {
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
-
-  useEffect(() => {
-    if (data) {
-      setEvent(data);
-    }
-  }, [data]);
+  const event = data || null;
 
   if (isLoading && !event) {
     return (

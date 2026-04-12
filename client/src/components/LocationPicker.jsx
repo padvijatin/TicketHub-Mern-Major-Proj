@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Building2, ChevronDown, MapPin, Navigation, Search, X } from "lucide-react";
-import { matchesLocationSearch, useLocationStore } from "../store/location.jsx";
+import { useLocationStore } from "../store/location-context.jsx";
+import { matchesLocationSearch } from "../store/location-utils.js";
 
 export const LocationPicker = ({ mobile = false, onSelect }) => {
+  const MotionDiv = motion.div;
   const {
     allCities,
     clearLocationFilter,
@@ -50,7 +52,7 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
   const modal = (
     <AnimatePresence>
       {isOpen ? (
-        <motion.div
+        <MotionDiv
           className="fixed inset-0 z-[9999] bg-[rgba(17,24,39,0.42)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -58,7 +60,7 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
           onClick={() => setIsOpen(false)}
         >
           <div className="flex min-h-full items-center justify-center overflow-y-auto px-[0.9rem] py-[1.2rem] sm:px-[1.6rem] sm:py-[2rem]">
-            <motion.div
+            <MotionDiv
               className="max-h-[calc(100vh-2.4rem)] w-full max-w-[78rem] overflow-y-auto rounded-[1.6rem] border border-[rgba(28,28,28,0.08)] bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:max-h-[calc(100vh-4rem)] sm:rounded-[2rem]"
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -168,9 +170,9 @@ export const LocationPicker = ({ mobile = false, onSelect }) => {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       ) : null}
     </AnimatePresence>
   );

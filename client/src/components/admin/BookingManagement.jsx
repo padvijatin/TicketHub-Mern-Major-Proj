@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Eye, MoreHorizontal, Search, X } from "lucide-react";
 import { toast } from "react-toastify";
-import { useAuth } from "../../store/auth.jsx";
+import { useAuth } from "../../store/auth-context.jsx";
 import { deleteAdminBooking, getAdminBookings, updateAdminBooking } from "../../utils/adminApi.js";
 
 const statusConfig = {

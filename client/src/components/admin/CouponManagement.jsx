@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, Plus, X } from "lucide-react";
 import { toast } from "react-toastify";
-import { useAuth } from "../../store/auth.jsx";
+import { useAuth } from "../../store/auth-context.jsx";
 import { createAdminCoupon, getAdminCoupons } from "../../utils/adminApi.js";
 
 const initialFormState = {

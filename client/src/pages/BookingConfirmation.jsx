@@ -127,6 +127,12 @@ export const BookingConfirmation = () => {
           </p>
         </div>
 
+        {!isLoading && !event ? (
+          <div className="rounded-[2rem] border border-[rgba(248,68,100,0.18)] bg-[rgba(248,68,100,0.06)] px-[1.6rem] py-[1.3rem] text-[1.35rem] text-[var(--color-text-secondary)]">
+            Event details could not be loaded. Your ticket is still valid if the booking ID is shown.
+          </div>
+        ) : null}
+
         <article
           ref={ticketRef}
           className="overflow-hidden rounded-[2.4rem] border border-[rgba(248,68,100,0.14)] bg-white shadow-[0_18px_36px_rgba(28,28,28,0.08)]"

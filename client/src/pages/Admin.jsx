@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 import AdminSidebar from "../components/admin/AdminSidebar.jsx";
 import DashboardOverview from "../components/admin/DashboardOverview.jsx";
 import EventManagement from "../components/admin/EventManagement.jsx";

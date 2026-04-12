@@ -3,6 +3,7 @@ const Booking = require("../models/booking-model");
 const Coupon = require("../models/coupon-model");
 const Payment = require("../models/payment-model");
 const User = require("../models/user-model");
+const AuditLog = require("../models/audit-log-model");
 const { serializeEvent, syncEventPosterStateForList, syncEventSeatState } = require("./event-controller");
 const { serializeUser, normalizeRole, normalizeStatus } = require("./auth-controller");
 const { serializeCoupon } = require("../services/coupon-service");
@@ -138,6 +139,25 @@ const parseSeatZones = (value, existingSeatZones = []) => {
   }
 
   return existingSeatZones;
+};
+
+const logAdminAction = async ({ action, entity, entityId = "", actor, metadata = {} } = {}) => {
+  if (!action || !entity) {
+    return;
+  }
+
+  try {
+    await AuditLog.create({
+      action,
+      entity,
+      entityId: String(entityId || ""),
+      actorId: String(actor?._id || ""),
+      actorRole: getUserRole(actor || {}),
+      metadata,
+    });
+  } catch (error) {
+    console.error("admin-audit-log-failed", error);
+  }
 };
 
 const buildPosterPath = (req, existingPoster = "") => {
@@ -427,6 +447,13 @@ const createEvent = async (req, res) => {
     await event.save();
     await event.populate("organizer", "username email");
 
+    await logAdminAction({
+      action: "event_create",
+      entity: "event",
+      entityId: event._id,
+      actor: req.user,
+      metadata: { title: event.title, category: event.category },
+    });
 
     return res.status(201).json({
       message: "Event created successfully",
@@ -480,6 +507,14 @@ const updateEvent = async (req, res) => {
       await deleteCloudinaryAsset(previousPoster);
     }
 
+    await logAdminAction({
+      action: "event_update",
+      entity: "event",
+      entityId: event._id,
+      actor: req.user,
+      metadata: { title: event.title, category: event.category },
+    });
+
     return res.status(200).json({
       message: "Event updated successfully",
       event: serializeManagedEvent(event),
@@ -508,6 +543,14 @@ const deleteEvent = async (req, res) => {
 
     event.isActive = false;
     await event.save();
+
+    await logAdminAction({
+      action: "event_archive",
+      entity: "event",
+      entityId: event._id,
+      actor: req.user,
+      metadata: { title: event.title, category: event.category },
+    });
 
     return res.status(200).json({ message: "Event archived successfully" });
   } catch (error) {
@@ -691,6 +734,14 @@ const createCoupon = async (req, res) => {
       isActive: true,
     });
 
+    await logAdminAction({
+      action: "coupon_create",
+      entity: "coupon",
+      entityId: coupon._id,
+      actor: req.user,
+      metadata: { code: coupon.code, discountType: coupon.discountType },
+    });
+
     return res.status(201).json({
       message: "Coupon created successfully",
       coupon: serializeCoupon(coupon),
@@ -744,6 +795,14 @@ const updateBooking = async (req, res) => {
 
     booking.paymentStatus = nextStatus;
     await booking.save();
+
+    await logAdminAction({
+      action: "booking_update",
+      entity: "booking",
+      entityId: booking._id,
+      actor: req.user,
+      metadata: { paymentStatus: booking.paymentStatus, bookingId: booking.bookingId },
+    });
 
     return res.status(200).json({
       message: "Booking updated successfully",
@@ -812,6 +871,14 @@ const deleteBooking = async (req, res) => {
     );
 
     await Booking.deleteOne({ _id: booking._id });
+
+    await logAdminAction({
+      action: "booking_delete",
+      entity: "booking",
+      entityId: booking._id,
+      actor: req.user,
+      metadata: { bookingId: booking.bookingId },
+    });
 
     return res.status(200).json({ message: "Booking deleted successfully" });
   } catch (error) {

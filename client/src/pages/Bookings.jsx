@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, ChevronRight, MapPin, Receipt, Ticket, Tickets } from "lucide-react";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 import { getMyBookings } from "../utils/eventApi.js";
 
 const fallbackPosterClassByType = {

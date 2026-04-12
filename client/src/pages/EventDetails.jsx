@@ -12,10 +12,11 @@ import {
   Users,
 } from "lucide-react";
 import { MapComponent } from "../components/MapComponent.jsx";
-import PosterImage, { fallbackPosterImage } from "../components/PosterImage.jsx";
+import PosterImage from "../components/PosterImage.jsx";
+import { fallbackPosterImage } from "../components/posterImageUtils.js";
 import { Rating } from "../components/Rating.jsx";
-import { useAuth } from "../store/auth.jsx";
-import { useWishlist } from "../store/wishlist.jsx";
+import { useAuth } from "../store/auth-context.jsx";
+import { useWishlist } from "../store/wishlist-context.jsx";
 import { getEventById, getEvents, rateEvent } from "../utils/eventApi.js";
 
 const formatDate = (value) => {

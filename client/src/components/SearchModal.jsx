@@ -13,6 +13,7 @@ const tabs = [
 ];
 
 export const SearchModal = ({ isOpen, onClose }) => {
+  const MotionDiv = motion.div;
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [items, setItems] = useState([]);
@@ -77,7 +78,7 @@ export const SearchModal = ({ isOpen, onClose }) => {
   const modal = (
     <AnimatePresence>
       {isOpen ? (
-        <motion.div
+        <MotionDiv
           className="fixed inset-0 z-[10000] bg-[rgba(17,24,39,0.42)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -85,7 +86,7 @@ export const SearchModal = ({ isOpen, onClose }) => {
           onClick={onClose}
         >
           <div className="flex min-h-full items-start justify-center overflow-y-auto px-[1.6rem] py-[9rem]">
-            <motion.div
+            <MotionDiv
               className="w-[min(66rem,100%)] rounded-[2.4rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.8rem] shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -139,9 +140,9 @@ export const SearchModal = ({ isOpen, onClose }) => {
                   <SearchList items={filteredItems} onSelect={onClose} />
                 )}
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       ) : null}
     </AnimatePresence>
   );

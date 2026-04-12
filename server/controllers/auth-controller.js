@@ -1,4 +1,6 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/user-model");
+const TokenBlocklist = require("../models/token-blocklist-model");
 
 const normalizeRole = (value = "") => {
   const normalizedValue = String(value || "")
@@ -106,6 +108,29 @@ const user = async (req, res) => {
 };
 
 const logout = async (req, res) => {
+  const token = String(req.token || "").trim();
+
+  if (token) {
+    try {
+      const decoded = jwt.decode(token) || {};
+      const expiresAt = decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      await TokenBlocklist.updateOne(
+        { token },
+        {
+          $set: {
+            token,
+            expiresAt,
+            reason: "logout",
+          },
+        },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error("logout-token-blocklist-failed", error);
+    }
+  }
+
   return res.status(200).json({ message: "Logout successful" });
 };
 

@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, ImagePlus, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { toast } from "react-toastify";
-import { useAuth } from "../../store/auth.jsx";
-import PosterImage, { fallbackPosterImage, resolvePosterSource } from "../PosterImage.jsx";
+import { useAuth } from "../../store/auth-context.jsx";
+import PosterImage from "../PosterImage.jsx";
+import { fallbackPosterImage, resolvePosterSource } from "../posterImageUtils.js";
 import {
   createAdminEvent,
   deleteAdminEvent,
@@ -293,11 +294,6 @@ const EventManagement = ({ role }) => {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [previewEvent, setPreviewEvent] = useState(null);
   const [imageLoadErrors, setImageLoadErrors] = useState({});
-  const [formErrors, setFormErrors] = useState({
-    globalErrors: [],
-    fieldErrors: {},
-    seatZoneErrors: {},
-  });
   const [isSubmitAttempted, setIsSubmitAttempted] = useState(false);
   const { data: events = [], isLoading, isError } = useQuery({
     queryKey: ["admin-events", authorizationToken, role],
@@ -335,14 +331,20 @@ const EventManagement = ({ role }) => {
       URL.revokeObjectURL(posterPreview);
     }
   }, [posterPreview]);
+  const formErrors = useMemo(() => {
+    if (!isFormOpen) {
+      return {
+        globalErrors: [],
+        fieldErrors: {},
+        seatZoneErrors: {},
+      };
+    }
+
+    return validateFormState(formState);
+  }, [formState, isFormOpen]);
 
   const resetForm = () => {
     setFormState(initialFormState);
-    setFormErrors({
-      globalErrors: [],
-      fieldErrors: {},
-      seatZoneErrors: {},
-    });
     setIsSubmitAttempted(false);
     setEditingEventId("");
     setIsFormOpen(false);
@@ -464,22 +466,9 @@ const EventManagement = ({ role }) => {
       return nextState;
     });
     setFormState(eventToFormState(event));
-    setFormErrors({
-      globalErrors: [],
-      fieldErrors: {},
-      seatZoneErrors: {},
-    });
     setIsSubmitAttempted(false);
     setIsFormOpen(true);
   };
-
-  useEffect(() => {
-    if (!isFormOpen) {
-      return;
-    }
-
-    setFormErrors(validateFormState(formState));
-  }, [formState, isFormOpen]);
 
   const getPosterSrc = (event) => {
     if (!event) return fallbackPosterImage;
@@ -489,8 +478,7 @@ const EventManagement = ({ role }) => {
   const handleSubmit = (event) => {
     event.preventDefault();
     setIsSubmitAttempted(true);
-    const validationResult = validateFormState(formState);
-    setFormErrors(validationResult);
+    const validationResult = formErrors;
 
     if (
       validationResult.globalErrors.length ||

@@ -119,7 +119,7 @@ const addWishlistItem = async (req, res) => {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: "after",
       }
     );
 

@@ -2,6 +2,7 @@ const Event = require("../models/event-model");
 const Booking = require("../models/booking-model");
 const Coupon = require("../models/coupon-model");
 const Payment = require("../models/payment-model");
+const AuditLog = require("../models/audit-log-model");
 const QRCode = require("qrcode");
 const puppeteer = require("puppeteer");
 const os = require("os");
@@ -339,6 +340,28 @@ const buildTicketMailOptions = ({ booking, recipientEmail, fromEmail, ticketUrl,
   attachments: [{ filename: `TicketHub-${booking.bookingId}.png`, content: imageBuffer, contentType: mimeType }],
 });
 
+const logTicketEmailFailure = async ({ bookingId, error, userId } = {}) => {
+  if (!bookingId) {
+    return;
+  }
+
+  try {
+    await AuditLog.create({
+      action: "ticket_email_failed",
+      entity: "booking",
+      entityId: String(bookingId),
+      actorId: String(userId || ""),
+      actorRole: "",
+      metadata: {
+        message: String(error?.message || "Unknown error"),
+        code: String(error?.code || ""),
+      },
+    });
+  } catch (logError) {
+    console.error("ticket-email-failure-log-failed", logError);
+  }
+};
+
 const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null } = {}) => {
   let tempFilePath = "";
   let uploadedTicketUrl = "";
@@ -421,6 +444,11 @@ const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null }
 
     return { message: "Ticket emailed successfully", alreadyDelivered: false, booking: serializeBooking(booking) };
   } catch (error) {
+    await logTicketEmailFailure({
+      bookingId: normalizedBookingId,
+      error,
+      userId: requestedBy?._id,
+    });
     if (uploadedTicketUrl) {
       await cleanupCloudinaryTicket(uploadedTicketUrl);
     }
@@ -999,4 +1027,3 @@ module.exports = {
   prepareBookingCheckout,
   serializeBooking,
 };
-

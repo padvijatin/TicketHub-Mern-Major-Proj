@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, Heart, MapPin } from "lucide-react";
 import { Rating } from "./Rating.jsx";
-import { useWishlist } from "../store/wishlist.jsx";
+import { useWishlist } from "../store/wishlist-context.jsx";
 
 const routeByType = {
   movie: "/movies",

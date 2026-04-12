@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { getEvents } from "../utils/eventApi.js";
+import { LocationContext } from "./location-context.jsx";
+import { normalizeCity } from "./location-utils.js";
 
 const STORAGE_KEY = "tickethub_location";
 
@@ -139,45 +141,12 @@ const otherCities = [
   { name: "Nandurbar", state: "Maharashtra" },
 ];
 
-const cityAliasMap = {
-  bangalore: "bengaluru",
-  bombay: "mumbai",
-  calcutta: "kolkata",
-  majura: "surat",
-};
-
 const cityCoordinatesMap = {
   surat: { latitude: 21.1702, longitude: 72.8311 },
   songadh: { latitude: 21.1667, longitude: 73.5667 },
   vyara: { latitude: 21.1103, longitude: 73.3936 },
   nizar: { latitude: 21.4761, longitude: 74.1892 },
   nandurbar: { latitude: 21.3667, longitude: 74.25 },
-};
-
-const normalizeCity = (value = "") => {
-  const normalizedValue = String(value)
-    .trim()
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ");
-
-  return cityAliasMap[normalizedValue] || normalizedValue;
-};
-
-export const matchesLocationSearch = (city, query) => {
-  const normalizedQuery = normalizeCity(query);
-
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  const searchableValues = [city.name, city.state]
-    .map((value) => normalizeCity(value))
-    .filter(Boolean);
-
-  return searchableValues.some((value) => value.includes(normalizedQuery));
 };
 
 const readStoredLocation = () => {
@@ -334,8 +303,6 @@ const mapCityToKnownOption = (city = {}, allCities = []) => {
       }
     : city;
 };
-
-const LocationContext = createContext(null);
 
 export const LocationProvider = ({ children }) => {
   const storedLocationState = useMemo(() => readStoredLocation(), []);
@@ -503,18 +470,4 @@ export const LocationProvider = ({ children }) => {
   }, [allCities, clearLocationFilter, chooseCity, detectCurrentLocation, isDetectingLocation, selectedLocation, isLocationFilterEnabled]);
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
-};
-
-export const useLocationStore = () => useContext(LocationContext);
-
-export const filterItemsByLocation = (items = [], selectedLocation) => {
-  if (!selectedLocation?.name || selectedLocation.name === "Select City") {
-    return items;
-  }
-
-  const selectedCity = normalizeCity(selectedLocation.name);
-  return items.filter((item) => {
-    const cityValue = normalizeCity(item.city || "");
-    return cityValue === selectedCity;
-  });
 };

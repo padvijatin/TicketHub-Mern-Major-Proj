@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronLeft, Lock, QrCode, Shield, Smartphone, Tag, WalletCards } from "lucide-react";
@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import PosterImage from "../components/PosterImage.jsx";
 import { getCoupons, validateCoupon } from "../utils/couponApi.js";
 import { createPaymentOrder, getEventById, verifyPayment } from "../utils/eventApi.js";
-import { useAuth } from "../store/auth.jsx";
+import { useAuth } from "../store/auth-context.jsx";
 
 const paymentHighlights = [
   { title: "UPI Apps", description: "Google Pay, PhonePe, Paytm and other UPI apps", icon: Smartphone },
@@ -15,6 +15,13 @@ const paymentHighlights = [
 ];
 
 const quickPayBadges = ["Google Pay", "PhonePe", "Paytm", "UPI QR", "Cards", "Net Banking"];
+const buildPricingStateForSubtotal = (subtotal = 0) => ({
+  subtotal,
+  couponCode: "",
+  appliedCoupon: null,
+  couponFeedback: "",
+  pricing: buildDefaultPricing(subtotal),
+});
 
 const buildDefaultPricing = (subtotal = 0) => {
   const safeSubtotal = Math.max(0, Math.round(Number(subtotal) || 0));
@@ -118,12 +125,11 @@ export const Payment = () => {
   const subtotal = bookingState.total || 0;
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponFeedback, setCouponFeedback] = useState("");
-  const [pricing, setPricing] = useState(() => buildDefaultPricing(subtotal));
+  const [pricingState, setPricingState] = useState(() => buildPricingStateForSubtotal(subtotal));
+  const activePricingState = pricingState.subtotal === subtotal ? pricingState : buildPricingStateForSubtotal(subtotal);
+  const { couponCode, appliedCoupon, couponFeedback, pricing } = activePricingState;
 
-  const { data: event, isLoading } = useQuery({
+  const { data: event, isLoading, isError } = useQuery({
     queryKey: ["event", id, authorizationToken],
     queryFn: () => getEventById(id, authorizationToken),
     enabled: Boolean(id),
@@ -134,13 +140,6 @@ export const Payment = () => {
     queryFn: () => getCoupons({ cartAmount: subtotal, authorizationToken }),
     enabled: subtotal > 0,
   });
-
-  useEffect(() => {
-    setAppliedCoupon(null);
-    setCouponCode("");
-    setCouponFeedback("");
-    setPricing(buildDefaultPricing(subtotal));
-  }, [subtotal]);
 
   const savingsText = useMemo(() => {
     if (!pricing.discountAmount) {
@@ -155,24 +154,31 @@ export const Payment = () => {
   const couponMutation = useMutation({
     mutationFn: (code) => validateCoupon({ code, cartAmount: subtotal, authorizationToken }),
     onSuccess: (response) => {
-      setAppliedCoupon(response.coupon || null);
-      setCouponCode(response.coupon?.code || "");
-      setCouponFeedback(response.message || "Coupon applied successfully");
-      setPricing({
-        cartAmount: response.cartAmount,
-        discountAmount: response.discountAmount,
-        convenienceFee: response.convenienceFee,
-        gstAmount: response.gstAmount,
-        finalAmount: response.finalAmount,
+      setPricingState({
+        subtotal,
+        couponCode: response.coupon?.code || "",
+        appliedCoupon: response.coupon || null,
+        couponFeedback: response.message || "Coupon applied successfully",
+        pricing: {
+          cartAmount: response.cartAmount,
+          discountAmount: response.discountAmount,
+          convenienceFee: response.convenienceFee,
+          gstAmount: response.gstAmount,
+          finalAmount: response.finalAmount,
+        },
       });
       toast.success(response.message || "Coupon applied successfully");
       queryClient.invalidateQueries({ queryKey: ["checkout-coupons", subtotal, authorizationToken] });
     },
     onError: (error) => {
       const message = error.response?.data?.message || "Unable to validate coupon right now";
-      setAppliedCoupon(null);
-      setCouponFeedback(message);
-      setPricing(buildDefaultPricing(subtotal));
+      setPricingState({
+        subtotal,
+        couponCode,
+        appliedCoupon: null,
+        couponFeedback: message,
+        pricing: buildDefaultPricing(subtotal),
+      });
       toast.error(message);
     },
   });
@@ -264,7 +270,10 @@ export const Payment = () => {
     const normalizedCode = String(nextCode || "").trim().toUpperCase();
 
     if (!normalizedCode) {
-      setCouponFeedback("Please enter a coupon code");
+      setPricingState({
+        ...activePricingState,
+        couponFeedback: "Please enter a coupon code",
+      });
       return;
     }
 
@@ -272,10 +281,13 @@ export const Payment = () => {
   };
 
   const removeCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCode("");
-    setCouponFeedback("Coupon removed");
-    setPricing(buildDefaultPricing(subtotal));
+    setPricingState({
+      subtotal,
+      couponCode: "",
+      appliedCoupon: null,
+      couponFeedback: "Coupon removed",
+      pricing: buildDefaultPricing(subtotal),
+    });
   };
 
   const handlePayment = () => {
@@ -331,6 +343,12 @@ export const Payment = () => {
             </p>
           </div>
         </div>
+
+        {isError ? (
+          <div className="mt-[1.6rem] rounded-[2rem] border border-[rgba(248,68,100,0.18)] bg-[rgba(248,68,100,0.06)] px-[1.6rem] py-[1.3rem] text-[1.35rem] text-[var(--color-text-secondary)]">
+            Event details could not be loaded. You can still proceed if your booking details are correct.
+          </div>
+        ) : null}
 
         <div className="mt-[2.4rem] grid items-start gap-[2.2rem] lg:grid-cols-[minmax(0,1.45fr)_minmax(29rem,0.9fr)]">
           <section className="flex flex-col gap-[2rem]">
@@ -415,8 +433,11 @@ export const Payment = () => {
                   <input
                     value={couponCode}
                     onChange={(eventObject) => {
-                      setCouponCode(eventObject.target.value.toUpperCase());
-                      setCouponFeedback("");
+                      setPricingState({
+                        ...activePricingState,
+                        couponCode: eventObject.target.value.toUpperCase(),
+                        couponFeedback: "",
+                      });
                     }}
                     placeholder="Enter coupon code"
                     className="h-[4.8rem] min-w-0 flex-1 rounded-[1.6rem] border border-[rgba(15,23,42,0.08)] bg-[#f7f7f8] px-[1.5rem] text-[1.42rem] uppercase text-[var(--color-text-primary)] outline-none transition-colors duration-200 focus:border-[rgba(248,68,100,0.24)]"

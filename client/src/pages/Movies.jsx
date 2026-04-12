@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ListingFilters } from "../components/ListingFilters.jsx";
 import { ListingGrid } from "../components/ListingGrid.jsx";
 import { PageHeroCarousel } from "../components/PageHeroCarousel.jsx";
-import { filterItemsByLocation, useLocationStore } from "../store/location.jsx";
+import { useLocationStore } from "../store/location-context.jsx";
+import { filterItemsByLocation } from "../store/location-utils.js";
 import { getEvents } from "../utils/eventApi.js";
 import { buildEventFilterParams, listingFilterConfigs } from "../utils/listingFilters.js";
 

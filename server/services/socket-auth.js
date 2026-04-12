@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user-model");
+const TokenBlocklist = require("../models/token-blocklist-model");
 
 const resolveTokenFromValue = (value = "") => {
   const normalizedValue = String(value || "").trim();
@@ -34,6 +35,11 @@ const resolveUserFromToken = async (tokenValue = "") => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const blockedToken = await TokenBlocklist.findOne({ token }).select("_id").lean();
+
+    if (blockedToken) {
+      return null;
+    }
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
