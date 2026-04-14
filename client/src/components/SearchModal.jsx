@@ -85,16 +85,16 @@ export const SearchModal = ({ isOpen, onClose }) => {
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
-          <div className="flex min-h-full items-start justify-center overflow-y-auto px-[1.6rem] py-[9rem]">
+          <div className="flex min-h-full items-start justify-center overflow-y-auto px-[0.9rem] py-[1.2rem] sm:px-[1.6rem] sm:py-[2rem] md:items-center">
             <MotionDiv
-              className="w-[min(66rem,100%)] rounded-[2.4rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.8rem] shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+              className="max-h-[calc(100vh-2.4rem)] w-full max-w-[66rem] overflow-y-auto rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.2rem] shadow-[0_28px_80px_rgba(15,23,42,0.18)] sm:max-h-[calc(100vh-4rem)] sm:rounded-[2.4rem] sm:p-[1.8rem]"
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="flex items-center justify-between gap-[1rem]">
+              <div className="flex items-center justify-between gap-[0.8rem] sm:gap-[1rem]">
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-[1.2rem] top-1/2 h-[1.8rem] w-[1.8rem] -translate-y-1/2 text-[var(--color-text-secondary)]" />
                   <input
@@ -102,13 +102,13 @@ export const SearchModal = ({ isOpen, onClose }) => {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search for movies, sports or events"
-                    className="h-[4.8rem] w-full rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white pl-[4.1rem] pr-[1.3rem] text-[1.4rem] text-[var(--color-text-primary)] outline-none transition-colors duration-200 focus:border-[rgba(248,68,100,0.22)]"
+                    className="h-[4.6rem] w-full rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white pl-[4.1rem] pr-[1.3rem] text-[1.35rem] text-[var(--color-text-primary)] outline-none transition-colors duration-200 focus:border-[rgba(248,68,100,0.22)] sm:h-[4.8rem] sm:text-[1.4rem]"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-[4.2rem] w-[4.2rem] items-center justify-center rounded-full border border-[rgba(28,28,28,0.08)] text-[var(--color-text-secondary)]"
+                  className="inline-flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-full border border-[rgba(28,28,28,0.08)] text-[var(--color-text-secondary)] sm:h-[4.2rem] sm:w-[4.2rem]"
                 >
                   <X className="h-[1.8rem] w-[1.8rem]" />
                 </button>
