@@ -82,15 +82,17 @@ const getCategoryLabel = (event) => {
 
 const EventCardSkeleton = ({ size = "default" }) => {
   const isListing = size === "listing";
-  const mediaAspectClassName = isListing ? "aspect-[5/6]" : "aspect-[16/10]";
-  const cardShellClassName = isListing ? "h-[48rem]" : "h-[44rem]";
+  const mediaAspectClassName = isListing ? "aspect-[4/5] sm:aspect-[5/6]" : "aspect-[15/10] sm:aspect-[16/10]";
+  const cardShellClassName = isListing
+    ? "min-h-[42rem] sm:min-h-[45rem] xl:min-h-[48rem]"
+    : "min-h-[38rem] sm:min-h-[41rem] xl:min-h-[44rem]";
 
   return (
     <article
       className={`h-full overflow-hidden rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)] ${cardShellClassName}`}
     >
       <div className={`${mediaAspectClassName} animate-pulse bg-[linear-gradient(180deg,#eceff3_0%,#e2e8f0_100%)]`} />
-      <div className="grid gap-[1rem] p-[1.5rem] animate-pulse">
+      <div className="grid animate-pulse gap-[1rem] p-[1.3rem] sm:p-[1.5rem]">
         <div className="h-[1.8rem] w-[72%] rounded-full bg-[#e7eaee]" />
         <div className="h-[1.4rem] w-[56%] rounded-full bg-[#edf0f3]" />
         <div className="h-[1.4rem] w-[48%] rounded-full bg-[#edf0f3]" />
@@ -108,11 +110,13 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
   const [imageSrc, setImageSrc] = useState(primaryImage);
   const { isWishlisted, toggleWishlist } = useWishlist();
   const isListing = size === "listing";
-  const mediaAspectClassName = isListing ? "aspect-[5/6]" : "aspect-[16/10]";
-  const cardShellClassName = isListing ? "h-[48rem]" : "h-[44rem]";
+  const mediaAspectClassName = isListing ? "aspect-[4/5] sm:aspect-[5/6]" : "aspect-[15/10] sm:aspect-[16/10]";
+  const cardShellClassName = isListing
+    ? "min-h-[42rem] sm:min-h-[45rem] xl:min-h-[48rem]"
+    : "min-h-[38rem] sm:min-h-[41rem] xl:min-h-[44rem]";
   const titleClassName = isListing
-    ? "min-h-[5.4rem] text-[1.85rem]"
-    : "min-h-[5.2rem] text-[1.8rem]";
+    ? "min-h-[5rem] text-[1.7rem] sm:min-h-[5.4rem] sm:text-[1.85rem]"
+    : "min-h-[4.8rem] text-[1.65rem] sm:min-h-[5.2rem] sm:text-[1.8rem]";
   const isLiked = isWishlisted(event) || Boolean(event.isWishlisted || event.liked);
 
   useEffect(() => {
@@ -150,7 +154,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
         aria-label={isLiked ? "Remove from wishlist" : "Add to wishlist"}
         aria-pressed={isLiked}
         onClick={handleWishlistToggle}
-        className={`absolute right-[1.2rem] top-[1.2rem] z-20 inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full border shadow-[0_10px_24px_rgba(28,28,28,0.14)] transition-colors duration-200 ${
+        className={`absolute right-[1rem] top-[1rem] z-20 inline-flex h-[3.6rem] w-[3.6rem] items-center justify-center rounded-full border shadow-[0_10px_24px_rgba(28,28,28,0.14)] transition-colors duration-200 sm:right-[1.2rem] sm:top-[1.2rem] sm:h-[3.8rem] sm:w-[3.8rem] ${
           isLiked
             ? "border-[rgba(248,68,100,0.24)] bg-white text-[var(--color-primary)]"
             : "border-[rgba(28,28,28,0.08)] bg-white/96 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]"
@@ -174,14 +178,14 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
           ) : null}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(28,28,28,0.04)_0%,rgba(28,28,28,0.14)_45%,rgba(28,28,28,0.54)_100%)]" />
 
-          <div className="absolute left-[1.2rem] top-[1.2rem] max-w-[68%]">
-            <span className="inline-flex rounded-full bg-[var(--color-primary)] px-[1rem] py-[0.65rem] text-[1rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-light)]">
+          <div className="absolute left-[1rem] top-[1rem] max-w-[72%] sm:left-[1.2rem] sm:top-[1.2rem] sm:max-w-[68%]">
+            <span className="inline-flex rounded-full bg-[var(--color-primary)] px-[0.9rem] py-[0.55rem] text-[0.95rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-light)] sm:px-[1rem] sm:py-[0.65rem] sm:text-[1rem]">
               {category}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col p-[1.5rem]">
+        <div className="flex flex-1 flex-col p-[1.3rem] sm:p-[1.5rem]">
           <h3
             className={`${titleClassName} font-extrabold leading-[1.35] tracking-[-0.02em] text-[var(--color-text-primary)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden`}
             title={title}
@@ -193,7 +197,7 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
             <Rating value={averageRating} totalRatings={totalRatings} size="sm" />
           </div>
 
-          <div className="mt-[1rem] grid gap-[0.8rem] text-[1.3rem] text-[var(--color-text-secondary)]">
+          <div className="mt-[1rem] grid gap-[0.75rem] text-[1.25rem] text-[var(--color-text-secondary)] sm:text-[1.3rem]">
             <div className="flex items-center gap-[0.7rem]">
               <CalendarDays className="h-[1.5rem] w-[1.5rem] shrink-0 text-[var(--color-primary)]" />
               <span className="truncate">{date}</span>
@@ -206,17 +210,17 @@ const EventCard = ({ event = {}, isLoading = false, size = "default" }) => {
             </div>
           </div>
 
-          <div className="mt-auto flex items-center justify-between gap-[1rem] pt-[1.6rem]">
+          <div className="mt-auto flex items-center justify-between gap-[0.8rem] pt-[1.4rem] sm:gap-[1rem] sm:pt-[1.6rem]">
             <div className="min-w-0">
               <p className="text-[1rem] font-extrabold uppercase tracking-[0.1em] text-[var(--color-text-secondary)]/80">
                 Starts from
               </p>
-              <p className="mt-[0.4rem] truncate text-[1.95rem] font-extrabold text-[var(--color-primary)]">
+              <p className="mt-[0.35rem] truncate text-[1.7rem] font-extrabold text-[var(--color-primary)] sm:text-[1.95rem]">
                 {price}
               </p>
             </div>
 
-            <span className="inline-flex h-[4rem] shrink-0 items-center rounded-[1.2rem] bg-[var(--color-primary)] px-[1.5rem] text-[1.3rem] font-bold text-[var(--color-text-light)] transition-colors duration-200 group-hover:bg-[var(--color-primary-hover)]">
+            <span className="inline-flex h-[3.7rem] shrink-0 items-center rounded-[1.1rem] bg-[var(--color-primary)] px-[1.2rem] text-[1.2rem] font-bold text-[var(--color-text-light)] transition-colors duration-200 group-hover:bg-[var(--color-primary-hover)] sm:h-[4rem] sm:rounded-[1.2rem] sm:px-[1.5rem] sm:text-[1.3rem]">
               Book Now
             </span>
           </div>

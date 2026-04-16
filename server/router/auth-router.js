@@ -3,7 +3,7 @@ const authController = require("../controllers/auth-controller");
 const validate = require("../middlewares/validate-middleware");
 const authMiddleware = require("../middlewares/auth-middleware");
 const { buildRateLimiter } = require("../middlewares/rate-limit");
-const { registerSchema, loginSchema } = require("../validators/auth-validator");
+const { registerSchema, loginSchema, updateProfileSchema, updatePasswordSchema } = require("../validators/auth-validator");
 
 const router = express.Router();
 const authLimiter = buildRateLimiter({
@@ -17,6 +17,8 @@ router.post("/login", authLimiter, validate(loginSchema), authController.login);
 router.get("/google", authLimiter, authController.googleRedirect);
 router.get("/google/callback", authLimiter, authController.googleCallback);
 router.get("/user", authMiddleware, authController.user);
+router.patch("/user", authMiddleware, validate(updateProfileSchema), authController.updateUserProfile);
+router.patch("/user/password", authMiddleware, validate(updatePasswordSchema), authController.updateUserPassword);
 router.post("/logout", authMiddleware, authController.logout);
 
 module.exports = router;

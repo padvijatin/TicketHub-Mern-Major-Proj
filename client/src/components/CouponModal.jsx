@@ -62,7 +62,7 @@ export const CouponModal = ({ isOpen, onClose }) => {
               {coupons.map((coupon) => (
                 <article
                   key={coupon.id}
-                  className="rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-[linear-gradient(135deg,rgba(248,68,100,0.08)_0%,rgba(123,63,228,0.08)_100%)] p-[1.6rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]"
+                  className="rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.6rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]"
                 >
                   <div className="flex items-start justify-between gap-[1rem]">
                     <span className="inline-flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-[1.4rem] bg-white text-[var(--color-primary)] shadow-[0_12px_24px_rgba(28,28,28,0.08)]">

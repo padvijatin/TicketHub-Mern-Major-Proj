@@ -1,45 +1,46 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "../store/auth-context.jsx";
-
-const GoogleIcon = () => (
-  <svg aria-hidden="true" className="h-[1.9rem] w-[1.9rem]" viewBox="0 0 48 48">
-    <path
-      fill="#FFC107"
-      d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.24 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.959 3.041l5.657-5.657C34.053 6.053 29.277 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917Z"
-    />
-    <path
-      fill="#FF3D00"
-      d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.959 3.041l5.657-5.657C34.053 6.053 29.277 4 24 4 16.318 4 9.656 8.337 6.306 14.691Z"
-    />
-    <path
-      fill="#4CAF50"
-      d="M24 44c5.176 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.146 35.091 26.695 36 24 36c-5.219 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z"
-    />
-    <path
-      fill="#1976D2"
-      d="M43.611 20.083H42V20H24v8h11.303a12.05 12.05 0 0 1-4.084 5.571l.003-.002 6.19 5.238C36.971 39.201 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z"
-    />
-  </svg>
-);
+import { getApiErrorMessage } from "../utils/apiError.js";
+import {
+  getValidatedFieldClassName,
+  hasValidationErrors,
+  validateEmail,
+  validatePassword,
+} from "../utils/formValidation.js";
 
 const initialState = {
   email: "",
   password: "",
 };
 
-const getAuthErrorMessage = (error, fallbackMessage) =>
-  error.response?.data?.errors?.[0] ||
-  error.response?.data?.message ||
-  (error.request ? "Unable to reach the TicketHub server. Make sure the backend is running on port 5000." : fallbackMessage);
+const initialTouchedState = {
+  email: false,
+  password: false,
+};
+
+const initialErrorState = {
+  email: "",
+  password: "",
+};
+
+const validateLoginState = (loginData) => ({
+  email: validateEmail(loginData.email),
+  password: validatePassword(loginData.password),
+});
 
 export const Login = () => {
   const [loginData, setLoginData] = useState(initialState);
+  const [fieldErrors, setFieldErrors] = useState(initialErrorState);
+  const [touchedFields, setTouchedFields] = useState(initialTouchedState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const skipAlreadyLoggedInToastRef = useRef(false);
+  const location = useLocation();
   const { isLoading, isLoggedIn, loginUser } = useAuth();
   const navigate = useNavigate();
+  const authNotice = typeof location.state?.authNotice === "string" ? location.state.authNotice : "";
+  const authNoticeTone = location.state?.authNoticeTone === "warning" ? "warning" : "info";
   const pageClassName =
     "min-h-[calc(100vh-15rem)] bg-[radial-gradient(circle_at_top_left,_rgba(248,68,100,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(123,63,228,0.14),_transparent_26%),linear-gradient(180deg,_#fff8fa_0%,_#f5f5f5_100%)] py-[5.6rem] max-[640px]:py-[3.2rem]";
   const containerClassName =
@@ -69,11 +70,34 @@ export const Login = () => {
 
   const handleInput = (event) => {
     const { name, value } = event.target;
-    setLoginData((prev) => ({ ...prev, [name]: value }));
+    const nextState = { ...loginData, [name]: value };
+    setLoginData(nextState);
+
+    if (touchedFields[name]) {
+      setFieldErrors(validateLoginState(nextState));
+    }
+  };
+
+  const handleBlur = (event) => {
+    const { name } = event.target;
+    setTouchedFields((current) => ({ ...current, [name]: true }));
+    setFieldErrors(validateLoginState(loginData));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const nextErrors = validateLoginState(loginData);
+
+    setTouchedFields({
+      email: true,
+      password: true,
+    });
+    setFieldErrors(nextErrors);
+
+    if (hasValidationErrors(nextErrors)) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -84,9 +108,17 @@ export const Login = () => {
       skipAlreadyLoggedInToastRef.current = true;
       toast.success(response.message || "Login successful");
       setLoginData(initialState);
+      setFieldErrors(initialErrorState);
+      setTouchedFields(initialTouchedState);
       navigate("/");
     } catch (error) {
-      const message = getAuthErrorMessage(error, "Login failed");
+      const message = getApiErrorMessage(error, {
+        fallbackMessage: "Login failed",
+        statusMessages: {
+          401: "Incorrect email or password. Please try again.",
+          429: "Too many login attempts. Please wait a few minutes and try again.",
+        },
+      });
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -105,11 +137,28 @@ export const Login = () => {
             Access your bookings, saved events, and secure checkout in one place.
           </p>
 
+          {authNotice ? (
+            <div
+              className={`mt-[1.8rem] rounded-[1.6rem] border px-[1.4rem] py-[1.2rem] text-left text-[1.38rem] leading-[1.7] ${
+                authNoticeTone === "warning"
+                  ? "border-[rgba(245,158,11,0.24)] bg-[rgba(255,247,237,0.95)] text-[#9a3412]"
+                  : "border-[rgba(59,130,246,0.2)] bg-[rgba(239,246,255,0.95)] text-[#1d4ed8]"
+              }`}
+            >
+              {authNotice}
+            </div>
+          ) : null}
+
           <a
             href={`${import.meta.env.VITE_API_URL || "http://localhost:5000/api/auth"}/google`}
-            className="mt-[2.2rem] inline-flex w-full items-center justify-center gap-[1rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.14)] bg-white px-[1.8rem] py-[1.2rem] text-[1.45rem] font-bold text-[var(--color-text-primary)] transition-[border-color,box-shadow,transform] duration-200 hover:border-[rgba(248,68,100,0.35)] hover:shadow-[0_12px_24px_rgba(248,68,100,0.12)] hover:-translate-y-px"
+            className={`${authNotice ? "mt-[1.6rem]" : "mt-[2.2rem]"} inline-flex w-full items-center justify-center gap-[1rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.14)] bg-white px-[1.8rem] py-[1.2rem] text-[1.45rem] font-bold text-[var(--color-text-primary)] transition-[border-color,box-shadow,transform] duration-200 hover:border-[rgba(248,68,100,0.35)] hover:shadow-[0_12px_24px_rgba(248,68,100,0.12)] hover:-translate-y-px`}
           >
-            <GoogleIcon />
+            <img
+              src="/google-g.svg"
+              alt=""
+              aria-hidden="true"
+              className="h-[1.9rem] w-[1.9rem]"
+            />
             Continue with Google
           </a>
 
@@ -121,7 +170,7 @@ export const Login = () => {
             <div className="h-px flex-1 bg-[rgba(28,28,28,0.08)]" />
           </div>
 
-          <form className="mt-[2.6rem] grid gap-[1.6rem]" onSubmit={handleSubmit}>
+          <form className="mt-[2.6rem] grid gap-[1.6rem]" onSubmit={handleSubmit} noValidate>
             <div className="grid gap-[0.8rem]">
               <label
                 className="text-[1.4rem] font-bold text-[var(--color-text-primary)]"
@@ -130,15 +179,20 @@ export const Login = () => {
                 Email
               </label>
               <input
-                className={inputClassName}
+                className={getValidatedFieldClassName(inputClassName, touchedFields.email && Boolean(fieldErrors.email))}
                 id="email"
                 name="email"
                 type="email"
                 placeholder="Enter your email"
                 value={loginData.email}
                 onChange={handleInput}
+                onBlur={handleBlur}
+                aria-invalid={touchedFields.email && Boolean(fieldErrors.email)}
                 required
               />
+              {touchedFields.email && fieldErrors.email ? (
+                <p className="text-[1.18rem] font-medium text-[var(--color-error)]">{fieldErrors.email}</p>
+              ) : null}
             </div>
 
             <div className="grid gap-[0.8rem]">
@@ -149,15 +203,20 @@ export const Login = () => {
                 Password
               </label>
               <input
-                className={inputClassName}
+                className={getValidatedFieldClassName(inputClassName, touchedFields.password && Boolean(fieldErrors.password))}
                 id="password"
                 name="password"
                 type="password"
                 placeholder="Enter your password"
                 value={loginData.password}
                 onChange={handleInput}
+                onBlur={handleBlur}
+                aria-invalid={touchedFields.password && Boolean(fieldErrors.password)}
                 required
               />
+              {touchedFields.password && fieldErrors.password ? (
+                <p className="text-[1.18rem] font-medium text-[var(--color-error)]">{fieldErrors.password}</p>
+              ) : null}
             </div>
 
             <button className={submitClassName} type="submit" disabled={isSubmitting}>

@@ -151,8 +151,15 @@ export const getMyBookings = async (authorizationToken) => {
   }));
 };
 
-export const getBookingTicket = async (bookingId) => {
-  const response = await axios.get(`${bookingsApiUrl}/${bookingId}`);
+export const getBookingTicket = async ({ bookingId, authorizationToken = "", accessToken = "" }) => {
+  const response = await axios.get(`${bookingsApiUrl}/${bookingId}`, {
+    ...buildAuthConfig(authorizationToken),
+    params: accessToken
+      ? {
+          access: accessToken,
+        }
+      : undefined,
+  });
   return {
     booking: response.data.booking || null,
     event: normalizeEvent(response.data.event || null),

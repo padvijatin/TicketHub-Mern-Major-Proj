@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -14,6 +14,7 @@ import {
 import { BrandLogo } from "../components/BrandLogo.jsx";
 import PosterImage from "../components/PosterImage.jsx";
 import { getBookingTicket } from "../utils/eventApi.js";
+import { useAuth } from "../store/auth-context.jsx";
 
 const detectContentType = (category = "") => {
   const value = String(category || "").trim().toLowerCase();
@@ -138,9 +139,12 @@ const DetailCard = ({ icon, label, value, accent = false }) => {
 
 export const TicketView = () => {
   const { bookingId } = useParams();
+  const location = useLocation();
+  const { authorizationToken } = useAuth();
+  const accessToken = new URLSearchParams(location.search).get("access") || "";
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["ticket", bookingId],
-    queryFn: () => getBookingTicket(bookingId),
+    queryKey: ["ticket", bookingId, authorizationToken, accessToken],
+    queryFn: () => getBookingTicket({ bookingId, authorizationToken, accessToken }),
     enabled: Boolean(bookingId),
   });
 

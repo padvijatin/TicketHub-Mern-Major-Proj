@@ -23,20 +23,20 @@ const HeroSlide = ({ slide }) => {
   const fallbackClassName = heroFallbackByType[slide.contentType] || heroFallbackByType.event;
 
   return (
-    <section className={`relative h-[34rem] overflow-hidden rounded-[2.8rem] md:h-[44rem] ${fallbackClassName}`}>
+    <section className={`relative h-[29rem] overflow-hidden rounded-[2.2rem] sm:h-[34rem] sm:rounded-[2.8rem] md:h-[44rem] ${fallbackClassName}`}>
       <PosterImage src={slide.poster} alt={slide.title} className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(28,28,28,0.86)_0%,rgba(28,28,28,0.48)_44%,rgba(28,28,28,0.1)_100%)]" />
 
-      <div className="relative z-10 flex h-full flex-col justify-end p-[2.4rem] text-[var(--color-text-light)] md:p-[4rem]">
+      <div className="relative z-10 flex h-full flex-col justify-end p-[1.8rem] text-[var(--color-text-light)] sm:p-[2.4rem] md:p-[4rem]">
         <h2 className="max-w-[11ch] text-[clamp(3rem,4.4vw,5.4rem)] leading-[1.03] font-extrabold tracking-[-0.04em]">
           {slide.title}
         </h2>
-        <p className="mt-[1.2rem] max-w-[52rem] text-[1.5rem] leading-[1.75] text-white/88 md:text-[1.7rem]">
+        <p className="mt-[1rem] max-w-[52rem] text-[1.35rem] leading-[1.7] text-white/88 sm:mt-[1.2rem] sm:text-[1.5rem] md:text-[1.7rem]">
           {slide.subtitle}
         </p>
         <Link
           to={slide.to}
-          className="mt-[2rem] inline-flex w-fit items-center rounded-[1.4rem] bg-[var(--color-primary)] px-[1.8rem] py-[1.2rem] text-[1.4rem] font-bold text-[var(--color-text-light)] transition-all duration-200 hover:bg-[var(--color-primary-hover)] md:text-[1.5rem]"
+          className="mt-[1.6rem] inline-flex w-fit items-center rounded-[1.25rem] bg-[var(--color-primary)] px-[1.5rem] py-[1rem] text-[1.3rem] font-bold text-[var(--color-text-light)] transition-all duration-200 hover:bg-[var(--color-primary-hover)] sm:mt-[2rem] sm:rounded-[1.4rem] sm:px-[1.8rem] sm:py-[1.2rem] sm:text-[1.4rem] md:text-[1.5rem]"
         >
           {slide.cta}
         </Link>
@@ -62,25 +62,28 @@ const HomeRail = ({
     : items;
 
   return (
-    <section className="mt-[3rem]">
-      <div className="mb-[1.6rem] flex items-center justify-between gap-[1.4rem]">
-        <div>
+    <section className="mt-[2.6rem] sm:mt-[3rem]">
+      <div className="mb-[1.4rem] flex flex-col gap-[1.2rem] sm:mb-[1.6rem] md:flex-row md:items-center md:justify-between md:gap-[1.4rem]">
+        <div className="min-w-0">
           {badge ? (
             <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.08)] px-[1rem] py-[0.65rem] text-[1.05rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-primary)]">
               {badge}
             </span>
           ) : null}
-          <h2 className="mt-[0.9rem] text-[2.4rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
+          <h2 className="mt-[0.85rem] text-[2.1rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)] sm:text-[2.4rem]">
             {title}
           </h2>
           {description ? (
-            <p className="mt-[0.6rem] text-[1.4rem] leading-[1.65] text-[var(--color-text-secondary)]">
+            <p className="mt-[0.55rem] max-w-[64rem] text-[1.35rem] leading-[1.65] text-[var(--color-text-secondary)] sm:text-[1.4rem]">
               {description}
             </p>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-[0.9rem]">
+        <div className="flex items-center justify-between gap-[0.9rem] md:justify-end">
+          <span className="text-[1.25rem] font-semibold text-[var(--color-text-secondary)] md:hidden">
+            Swipe to explore
+          </span>
           <Link
             to={to}
             className="text-[1.4rem] font-bold text-[var(--color-primary)] transition-colors duration-200 hover:text-[var(--color-primary-hover)]"
@@ -109,19 +112,24 @@ const HomeRail = ({
           {emptyMessage}
         </div>
       ) : (
-        <Swiper
+        <div className="overflow-hidden rounded-[2rem]">
+          <Swiper
           modules={[A11y, Navigation]}
           navigation={{
             prevEl: `.${prevClassName}`,
             nextEl: `.${nextClassName}`,
           }}
-          spaceBetween={20}
-          slidesPerView={1.12}
+          className="!overflow-visible"
+          grabCursor
+          watchOverflow
+          spaceBetween={14}
+          slidesPerView={1.08}
           breakpoints={{
-            560: { slidesPerView: 1.45 },
-            768: { slidesPerView: 2.1 },
-            1024: { slidesPerView: 3.1 },
-            1280: { slidesPerView: 4 },
+            420: { slidesPerView: 1.18, spaceBetween: 16 },
+            560: { slidesPerView: 1.45, spaceBetween: 18 },
+            768: { slidesPerView: 2.1, spaceBetween: 20 },
+            1024: { slidesPerView: 3.1, spaceBetween: 20 },
+            1280: { slidesPerView: 4, spaceBetween: 22 },
           }}
         >
           {slides.map((item) => (
@@ -131,7 +139,8 @@ const HomeRail = ({
               </div>
             </SwiperSlide>
           ))}
-        </Swiper>
+          </Swiper>
+        </div>
       )}
     </section>
   );
@@ -238,8 +247,8 @@ export const Home = () => {
   const hasSlides = heroSlides.length > 0;
 
   return (
-    <main className="py-[3rem]">
-      <section className="mx-auto w-[min(120rem,calc(100%_-_3.2rem))]">
+    <main className="py-[2rem] sm:py-[3rem]">
+      <section className="mx-auto w-[min(120rem,calc(100%_-_2.4rem))] sm:w-[min(120rem,calc(100%_-_3.2rem))]">
         <div className="relative">
           {hasSlides ? (
             <HeroCarousel
@@ -247,7 +256,7 @@ export const Home = () => {
               renderSlide={(slide) => <HeroSlide slide={slide} />}
             />
           ) : (
-            <section className="flex h-[34rem] items-end overflow-hidden rounded-[2.8rem] bg-[linear-gradient(135deg,#171717_0%,#7b3fe4_48%,#f84464_100%)] p-[2.4rem] text-[var(--color-text-light)] md:h-[44rem] md:p-[4rem]">
+            <section className="flex h-[29rem] items-end overflow-hidden rounded-[2.2rem] bg-[linear-gradient(135deg,#171717_0%,#7b3fe4_48%,#f84464_100%)] p-[1.8rem] text-[var(--color-text-light)] sm:h-[34rem] sm:rounded-[2.8rem] sm:p-[2.4rem] md:h-[44rem] md:p-[4rem]">
               <div>
                 <h2 className="max-w-[11ch] text-[clamp(3rem,4.4vw,5.4rem)] leading-[1.03] font-extrabold tracking-[-0.04em]">
                   {isLoading ? "Loading live events..." : "No live events available yet."}

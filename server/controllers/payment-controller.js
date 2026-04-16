@@ -14,6 +14,76 @@ const { serializeEvent, syncEventSeatState } = require("./event-controller");
 
 let razorpayClient = null;
 
+const normalizeSeatList = (seats = []) =>
+  [...new Set((Array.isArray(seats) ? seats : []).map((seat) => String(seat || "").trim()).filter(Boolean))].sort();
+
+const seatListsMatch = (left = [], right = []) => {
+  const normalizedLeft = normalizeSeatList(left);
+  const normalizedRight = normalizeSeatList(right);
+
+  return normalizedLeft.length === normalizedRight.length && normalizedLeft.every((seat, index) => seat === normalizedRight[index]);
+};
+
+const assertStoredPaymentOwnership = ({ paymentRecord, userId, eventId, seats }) => {
+  if (!paymentRecord) {
+    return;
+  }
+
+  const currentUserId = String(userId || "");
+  const recordUserId = paymentRecord.user?.toString?.() || "";
+  const recordEventId = paymentRecord.event?.toString?.() || "";
+
+  if (recordUserId && recordUserId !== currentUserId) {
+    const error = new Error("This payment does not belong to the current user");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (recordEventId && eventId && recordEventId !== String(eventId)) {
+    const error = new Error("Payment event mismatch");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  if (paymentRecord.seats?.length && seats?.length && !seatListsMatch(paymentRecord.seats, seats)) {
+    const error = new Error("Payment seats mismatch");
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
+const assertRazorpayOrderOwnership = ({ order, userId, eventId, seats }) => {
+  if (!order) {
+    return;
+  }
+
+  const notes = order.notes || {};
+  const orderUserId = String(notes.userId || "").trim();
+  const orderEventId = String(notes.eventId || "").trim();
+  const orderSeats = String(notes.seats || "")
+    .split(",")
+    .map((seat) => seat.trim())
+    .filter(Boolean);
+
+  if (orderUserId && orderUserId !== String(userId || "")) {
+    const error = new Error("This Razorpay order does not belong to the current user");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (orderEventId && eventId && orderEventId !== String(eventId)) {
+    const error = new Error("Razorpay order event mismatch");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  if (orderSeats.length && seats?.length && !seatListsMatch(orderSeats, seats)) {
+    const error = new Error("Razorpay order seats mismatch");
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
 const triggerTicketDeliveryAsync = ({ bookingId, requestedBy }) => {
   if (!bookingId) {
     return;
@@ -247,8 +317,37 @@ const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
+    const storedPaymentRecord = await Payment.findOne({
+      $or: [{ paymentId: razorpay_payment_id }, { orderId: razorpay_order_id }],
+    }).select("user event seats booking");
+
+    assertStoredPaymentOwnership({
+      paymentRecord: storedPaymentRecord,
+      userId: req.user._id,
+      eventId,
+      seats,
+    });
+
+    const razorpay = getRazorpayClient();
+    const [payment, order] = await Promise.all([
+      razorpay.payments.fetch(razorpay_payment_id),
+      razorpay.orders.fetch(razorpay_order_id),
+    ]);
+
+    assertRazorpayOrderOwnership({
+      order,
+      userId: req.user._id,
+      eventId,
+      seats,
+    });
+
     const existingBooking = await Booking.findOne({ paymentId: razorpay_payment_id }).populate("event");
     if (existingBooking) {
+      const existingBookingUserId = existingBooking.user?._id?.toString?.() || existingBooking.user?.toString?.() || "";
+      if (existingBookingUserId && existingBookingUserId !== req.user._id.toString()) {
+        return res.status(403).json({ message: "This booking does not belong to the current user" });
+      }
+
       if (!existingBooking.user && req.user?._id) {
         existingBooking.user = req.user._id;
         await existingBooking.save();
@@ -283,12 +382,6 @@ const verifyPayment = async (req, res) => {
       });
       return res.status(200).json(existingResponse);
     }
-
-    const razorpay = getRazorpayClient();
-    const [payment, order] = await Promise.all([
-      razorpay.payments.fetch(razorpay_payment_id),
-      razorpay.orders.fetch(razorpay_order_id),
-    ]);
 
     if (!payment || !order || payment.order_id !== razorpay_order_id) {
       await upsertPaymentRecord({
@@ -407,4 +500,3 @@ module.exports = {
   createOrder,
   verifyPayment,
 };
-

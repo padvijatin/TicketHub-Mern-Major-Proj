@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronRight, MapPin, Receipt, Ticket, Tickets } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronRight, MapPin, Receipt, Ticket, Tickets } from "lucide-react";
 import { useAuth } from "../store/auth-context.jsx";
 import { getMyBookings } from "../utils/eventApi.js";
 
@@ -220,8 +220,18 @@ export const Bookings = () => {
   }
 
   return (
-    <main className="py-[3rem]">
+    <main className="bg-[var(--color-bg-main)] py-[3rem]">
       <section className="mx-auto w-[min(120rem,calc(100%_-_3.2rem))]">
+        <div className="mb-[1.6rem]">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-[0.6rem] text-[1.35rem] font-semibold text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-primary)]"
+          >
+            <ArrowLeft className="h-[1.6rem] w-[1.6rem]" />
+            Back to TicketHub
+          </Link>
+        </div>
+
         <div className="flex justify-center">
           <div className="inline-flex flex-wrap items-center gap-[0.8rem] rounded-full border border-[rgba(28,28,28,0.08)] bg-white p-[0.7rem] shadow-[var(--shadow-soft)]">
             {bookingTabs.map((tab) => (

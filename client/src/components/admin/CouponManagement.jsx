@@ -4,6 +4,13 @@ import { MoreHorizontal, Plus, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth-context.jsx";
 import { createAdminCoupon, getAdminCoupons } from "../../utils/adminApi.js";
+import { getApiErrorMessage } from "../../utils/apiError.js";
+import {
+  getValidatedFieldClassName,
+  hasValidationErrors,
+  validateCouponCode,
+  validateDateValue,
+} from "../../utils/formValidation.js";
 
 const initialFormState = {
   code: "",
@@ -40,11 +47,52 @@ const getTodayDateValue = () => {
   return localDate.toISOString().split("T")[0];
 };
 
+const initialTouchedState = {
+  code: false,
+  discountValue: false,
+  usageLimit: false,
+  minOrderAmount: false,
+  maxDiscount: false,
+  expiryDate: false,
+};
+
+const initialErrorState = {
+  code: "",
+  discountValue: "",
+  usageLimit: "",
+  minOrderAmount: "",
+  maxDiscount: "",
+  expiryDate: "",
+};
+
+const validateCouponState = (formState) => {
+  const discountValue = Number(formState.discountValue || 0);
+  const usageLimit = formState.usageLimit === "" ? null : Number(formState.usageLimit || 0);
+  const minOrderAmount = Number(formState.minOrderAmount || 0);
+  const maxDiscount = formState.maxDiscount === "" ? null : Number(formState.maxDiscount || 0);
+
+  return {
+    code: validateCouponCode(formState.code),
+    discountValue:
+      discountValue <= 0
+        ? "Discount must be greater than zero."
+        : formState.discountType === "percentage" && discountValue > 100
+          ? "Percentage discount cannot be more than 100."
+          : "",
+    usageLimit: usageLimit != null && usageLimit < 1 ? "Max uses must be at least 1." : "",
+    minOrderAmount: minOrderAmount < 0 ? "Minimum order cannot be negative." : "",
+    maxDiscount: maxDiscount != null && maxDiscount < 0 ? "Max discount cannot be negative." : "",
+    expiryDate: validateDateValue(formState.expiryDate, "Expiry date"),
+  };
+};
+
 const CouponManagement = () => {
   const queryClient = useQueryClient();
   const { authorizationToken } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formState, setFormState] = useState(initialFormState);
+  const [fieldErrors, setFieldErrors] = useState(initialErrorState);
+  const [touchedFields, setTouchedFields] = useState(initialTouchedState);
 
   const { data: coupons = [], isLoading, isError } = useQuery({
     queryKey: ["admin-coupons", authorizationToken],
@@ -61,7 +109,14 @@ const CouponManagement = () => {
       setIsCreateOpen(false);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to create coupon right now");
+      toast.error(
+        getApiErrorMessage(error, {
+          fallbackMessage: "Unable to create coupon right now",
+          statusMessages: {
+            409: "A coupon with this code already exists. Please use a different code.",
+          },
+        })
+      );
     },
   });
 
@@ -79,53 +134,46 @@ const CouponManagement = () => {
   }, [coupons]);
 
   const handleInputChange = (field, value) => {
-    setFormState((current) => ({ ...current, [field]: value }));
+    const nextState = { ...formState, [field]: value };
+    setFormState(nextState);
+
+    if (touchedFields[field]) {
+      setFieldErrors(validateCouponState(nextState));
+    }
   };
 
   const closeCreateModal = () => {
     if (createMutation.isPending) return;
     setIsCreateOpen(false);
     setFormState(initialFormState);
+    setFieldErrors(initialErrorState);
+    setTouchedFields(initialTouchedState);
   };
 
   const handleCreateCoupon = (event) => {
     event.preventDefault();
+    const nextErrors = validateCouponState(formState);
+
+    setTouchedFields({
+      code: true,
+      discountValue: true,
+      usageLimit: true,
+      minOrderAmount: true,
+      maxDiscount: true,
+      expiryDate: true,
+    });
+    setFieldErrors(nextErrors);
+
+    if (hasValidationErrors(nextErrors)) {
+      toast.error(Object.values(nextErrors).find(Boolean) || "Please fix the highlighted coupon fields.");
+      return;
+    }
 
     const normalizedCode = formState.code.trim().toUpperCase();
     const discountValue = Number(formState.discountValue || 0);
     const minOrderAmount = Number(formState.minOrderAmount || 0);
     const usageLimit = formState.usageLimit === "" ? null : Number(formState.usageLimit || 0);
     const maxDiscount = formState.maxDiscount === "" ? null : Number(formState.maxDiscount || 0);
-
-    if (!normalizedCode) {
-      toast.error("Coupon code is required");
-      return;
-    }
-
-    if (discountValue <= 0) {
-      toast.error("Discount must be greater than zero");
-      return;
-    }
-
-    if (formState.discountType === "percentage" && discountValue > 100) {
-      toast.error("Percentage discount cannot be more than 100");
-      return;
-    }
-
-    if (usageLimit != null && usageLimit < 1) {
-      toast.error("Max uses must be at least 1");
-      return;
-    }
-
-    if (minOrderAmount < 0) {
-      toast.error("Minimum order cannot be negative");
-      return;
-    }
-
-    if (maxDiscount != null && maxDiscount < 0) {
-      toast.error("Max discount cannot be negative");
-      return;
-    }
 
     createMutation.mutate({
       code: normalizedCode,
@@ -269,7 +317,7 @@ const CouponManagement = () => {
                 </button>
               </div>
 
-              <form className="mt-[2.4rem] space-y-[1.9rem]" onSubmit={handleCreateCoupon}>
+              <form className="mt-[2.4rem] space-y-[1.9rem]" onSubmit={handleCreateCoupon} noValidate>
                 <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
                   <span>
                     Coupon Code <span className="text-[var(--color-primary)]">*</span>
@@ -278,10 +326,17 @@ const CouponManagement = () => {
                     type="text"
                     value={formState.code}
                     onChange={(event) => handleInputChange("code", event.target.value.toUpperCase())}
+                    onBlur={() => {
+                      setTouchedFields((current) => ({ ...current, code: true }));
+                      setFieldErrors(validateCouponState(formState));
+                    }}
                     placeholder="SUMMER50"
-                    className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                    className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.code && Boolean(fieldErrors.code))}
                     required
                   />
+                  {touchedFields.code && fieldErrors.code ? (
+                    <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.code}</span>
+                  ) : null}
                 </label>
 
                 <div className="grid gap-[1.6rem] sm:grid-cols-2">
@@ -307,9 +362,16 @@ const CouponManagement = () => {
                       max={formState.discountType === "percentage" ? "100" : undefined}
                       value={formState.discountValue}
                       onChange={(event) => handleInputChange("discountValue", event.target.value)}
-                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                      onBlur={() => {
+                        setTouchedFields((current) => ({ ...current, discountValue: true }));
+                        setFieldErrors(validateCouponState(formState));
+                      }}
+                      className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.discountValue && Boolean(fieldErrors.discountValue))}
                       required
                     />
+                    {touchedFields.discountValue && fieldErrors.discountValue ? (
+                      <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.discountValue}</span>
+                    ) : null}
                   </label>
                 </div>
 
@@ -321,8 +383,15 @@ const CouponManagement = () => {
                       min="1"
                       value={formState.usageLimit}
                       onChange={(event) => handleInputChange("usageLimit", event.target.value)}
-                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                      onBlur={() => {
+                        setTouchedFields((current) => ({ ...current, usageLimit: true }));
+                        setFieldErrors(validateCouponState(formState));
+                      }}
+                      className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.usageLimit && Boolean(fieldErrors.usageLimit))}
                     />
+                    {touchedFields.usageLimit && fieldErrors.usageLimit ? (
+                      <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.usageLimit}</span>
+                    ) : null}
                   </label>
 
                   <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
@@ -332,8 +401,15 @@ const CouponManagement = () => {
                       min="0"
                       value={formState.minOrderAmount}
                       onChange={(event) => handleInputChange("minOrderAmount", event.target.value)}
-                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                      onBlur={() => {
+                        setTouchedFields((current) => ({ ...current, minOrderAmount: true }));
+                        setFieldErrors(validateCouponState(formState));
+                      }}
+                      className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.minOrderAmount && Boolean(fieldErrors.minOrderAmount))}
                     />
+                    {touchedFields.minOrderAmount && fieldErrors.minOrderAmount ? (
+                      <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.minOrderAmount}</span>
+                    ) : null}
                   </label>
                 </div>
 
@@ -345,8 +421,15 @@ const CouponManagement = () => {
                       min="0"
                       value={formState.maxDiscount}
                       onChange={(event) => handleInputChange("maxDiscount", event.target.value)}
-                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                      onBlur={() => {
+                        setTouchedFields((current) => ({ ...current, maxDiscount: true }));
+                        setFieldErrors(validateCouponState(formState));
+                      }}
+                      className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.maxDiscount && Boolean(fieldErrors.maxDiscount))}
                     />
+                    {touchedFields.maxDiscount && fieldErrors.maxDiscount ? (
+                      <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.maxDiscount}</span>
+                    ) : null}
                   </label>
 
                   <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
@@ -355,10 +438,17 @@ const CouponManagement = () => {
                       type="date"
                       value={formState.expiryDate}
                       onChange={(event) => handleInputChange("expiryDate", event.target.value)}
+                      onBlur={() => {
+                        setTouchedFields((current) => ({ ...current, expiryDate: true }));
+                        setFieldErrors(validateCouponState(formState));
+                      }}
                       min={getTodayDateValue()}
-                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                      className={getValidatedFieldClassName("h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]", touchedFields.expiryDate && Boolean(fieldErrors.expiryDate))}
                       required
                     />
+                    {touchedFields.expiryDate && fieldErrors.expiryDate ? (
+                      <span className="text-[1.08rem] font-medium text-[var(--color-error)]">{fieldErrors.expiryDate}</span>
+                    ) : null}
                   </label>
                 </div>
 

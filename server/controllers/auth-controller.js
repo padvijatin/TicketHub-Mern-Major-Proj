@@ -107,7 +107,7 @@ const register = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
+      return res.status(409).json({ message: "Email already exists" });
     }
 
     const userCreated = await User.create({
@@ -138,7 +138,7 @@ const login = async (req, res) => {
     const userExist = await User.findOne({ email });
 
     if (!userExist) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     if (normalizeStatus(userExist.status) !== "active") {
@@ -146,13 +146,13 @@ const login = async (req, res) => {
     }
 
     if (!userExist.password) {
-      return res.status(400).json({ message: "This account uses Google sign-in. Please continue with Google." });
+      return res.status(409).json({ message: "This account uses Google sign-in. Please continue with Google." });
     }
 
     const isPasswordValid = await userExist.comparePassword(password);
 
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     return res.status(200).json({
@@ -168,7 +168,7 @@ const login = async (req, res) => {
 
 const googleRedirect = async (_req, res) => {
   if (!googleOAuth) {
-    return res.status(500).json({ message: "Google login is not configured on the server." });
+    return res.status(503).json({ message: "Google login is not configured on the server." });
   }
 
   const state = arctic.generateState();
@@ -276,6 +276,66 @@ const user = async (req, res) => {
   return res.status(200).json({ user: serializeUser(req.user) });
 };
 
+const updateUserProfile = async (req, res) => {
+  try {
+    const { username, phone } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.username = String(username || "").trim();
+    user.phone = String(phone || "").trim();
+    await user.save();
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to update profile" });
+  }
+};
+
+const updateUserPassword = async (req, res) => {
+  try {
+    const { currentPassword = "", newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const hasExistingPassword = Boolean(String(user.password || "").trim());
+
+    if (hasExistingPassword) {
+      const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+    }
+
+    user.password = newPassword;
+
+    const nextProviders = ensureAuthProviders(user);
+    if (!nextProviders.includes("local")) {
+      nextProviders.push("local");
+    }
+    user.authProviders = nextProviders;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: hasExistingPassword ? "Password updated successfully" : "Password set successfully",
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to update password" });
+  }
+};
+
 const logout = async (req, res) => {
   const token = String(req.token || "").trim();
 
@@ -309,6 +369,8 @@ module.exports = {
   googleRedirect,
   googleCallback,
   user,
+  updateUserProfile,
+  updateUserPassword,
   logout,
   serializeUser,
   normalizeRole,

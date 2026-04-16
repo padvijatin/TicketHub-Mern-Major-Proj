@@ -16,7 +16,36 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+const updateProfileSchema = z.object({
+  username: z.string().trim().min(3, "Username must be at least 3 characters"),
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || /^[0-9+\-\s()]{10,20}$/.test(value),
+      "Please enter a valid phone number"
+    ),
+});
+
+const updatePasswordSchema = z
+  .object({
+    currentPassword: z.string().optional().default(""),
+    newPassword: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters"),
+  })
+  .superRefine((value, context) => {
+    if (value.newPassword !== value.confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Confirm password must match the new password",
+      });
+    }
+  });
+
 module.exports = {
   registerSchema,
   loginSchema,
+  updateProfileSchema,
+  updatePasswordSchema,
 };

@@ -89,28 +89,28 @@ const DashboardOverview = ({ role }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-[1.4rem] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-[1.2rem] sm:grid-cols-2 xl:grid-cols-4 sm:gap-[1.4rem]">
         {statCards.map((stat) => {
           const Icon = stat.icon;
 
           return (
             <article
               key={stat.label}
-              className="rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)]"
+              className="rounded-[1.6rem] border border-[rgba(28,28,28,0.08)] bg-white p-[1.5rem] shadow-[0_16px_36px_rgba(28,28,28,0.06)] sm:rounded-[1.8rem] sm:p-[2rem]"
             >
               <div className="flex items-center justify-between gap-[1rem]">
                 <div>
-                  <p className="text-[1.3rem] text-[var(--color-text-secondary)]">{stat.label}</p>
-                  <p className="mt-[0.6rem] text-[2.8rem] font-extrabold text-[var(--color-text-primary)]">
+                  <p className="text-[1.2rem] text-[var(--color-text-secondary)] sm:text-[1.3rem]">{stat.label}</p>
+                  <p className="mt-[0.45rem] text-[2.3rem] font-extrabold text-[var(--color-text-primary)] sm:mt-[0.6rem] sm:text-[2.8rem]">
                     {isLoading ? "..." : stat.value}
                   </p>
                 </div>
-                <div className="flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-[1.3rem] bg-[rgba(248,68,100,0.1)] text-[var(--color-primary)]">
-                  <Icon className="h-[2rem] w-[2rem]" />
+                <div className="flex h-[4rem] w-[4rem] items-center justify-center rounded-[1.2rem] bg-[rgba(248,68,100,0.1)] text-[var(--color-primary)] sm:h-[4.4rem] sm:w-[4.4rem] sm:rounded-[1.3rem]">
+                  <Icon className="h-[1.8rem] w-[1.8rem] sm:h-[2rem] sm:w-[2rem]" />
                 </div>
               </div>
 
-              <div className="mt-[1rem] flex items-center gap-[0.5rem] text-[1.15rem] text-[var(--color-text-secondary)]">
+              <div className="mt-[0.8rem] flex items-center gap-[0.45rem] text-[1.05rem] text-[var(--color-text-secondary)] sm:mt-[1rem] sm:text-[1.15rem]">
                 <TrendingUp className="h-[1.35rem] w-[1.35rem] text-[var(--color-success)]" />
                 {isLoading ? "Refreshing metrics..." : "Live data from your current database"}
               </div>

@@ -32,7 +32,7 @@ export const Admin = () => {
 
   if (isLoading) {
     return (
-      <section className="mx-auto flex min-h-[calc(100vh-15rem)] w-[min(120rem,calc(100%_-_3.2rem))] items-center justify-center py-[4rem] text-[1.8rem] font-semibold text-[var(--color-text-secondary)]">
+      <section className="mx-auto flex min-h-[calc(100vh-15rem)] w-[min(120rem,calc(100%_-_2.4rem))] items-center justify-center py-[4rem] text-[1.6rem] font-semibold text-[var(--color-text-secondary)] sm:w-[min(120rem,calc(100%_-_3.2rem))] sm:text-[1.8rem]">
         Checking admin access...
       </section>
     );
@@ -44,8 +44,8 @@ export const Admin = () => {
 
   if (!isAdmin) {
     return (
-      <section className="mx-auto grid min-h-[calc(100vh-15rem)] w-[min(72rem,calc(100%_-_3.2rem))] place-items-center py-[4rem]">
-        <div className="rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-white p-[3rem] text-center shadow-[0_24px_60px_rgba(28,28,28,0.1)]">
+      <section className="mx-auto grid min-h-[calc(100vh-15rem)] w-[min(72rem,calc(100%_-_2.4rem))] place-items-center py-[4rem] sm:w-[min(72rem,calc(100%_-_3.2rem))]">
+        <div className="rounded-[2rem] border border-[rgba(28,28,28,0.08)] bg-white p-[2rem] text-center shadow-[0_24px_60px_rgba(28,28,28,0.1)] sm:p-[3rem]">
           <span className="inline-flex rounded-full bg-[rgba(248,68,100,0.1)] px-[1.2rem] py-[0.7rem] text-[1.2rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-primary)]">
             Restricted
           </span>
@@ -61,10 +61,10 @@ export const Admin = () => {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-15rem)] bg-[var(--color-bg-main)] p-[1.6rem] max-[980px]:flex-col">
+    <div className="flex min-h-[calc(100vh-15rem)] bg-[var(--color-bg-main)] p-[1rem] sm:p-[1.6rem] max-[980px]:flex-col">
       <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} role="admin" />
-      <main className="flex-1 overflow-auto p-[2.4rem] max-[980px]:px-0 max-[980px]:pb-0">
-        <div className="mb-[1.4rem]">
+      <main className="flex-1 overflow-auto p-[1.2rem] sm:p-[1.8rem] lg:p-[2.4rem] max-[980px]:px-0 max-[980px]:pb-0">
+        <div className="mb-[1rem] sm:mb-[1.4rem]">
           <Link
             to="/"
             className="inline-flex items-center gap-[0.6rem] text-[1.35rem] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-primary)]"

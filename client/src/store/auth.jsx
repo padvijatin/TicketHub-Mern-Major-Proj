@@ -47,7 +47,9 @@ export const AuthProvider = ({ children }) => {
         try {
           window.sessionStorage.setItem("oauth_success", decodeURIComponent(successMatch[1]));
           window.dispatchEvent(new Event("oauth-toast"));
-        } catch (error) {}
+        } catch {
+          // Ignore browser storage restrictions and continue login flow.
+        }
       }
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
       return;
@@ -58,7 +60,9 @@ export const AuthProvider = ({ children }) => {
       try {
         window.sessionStorage.setItem("oauth_error", decoded);
         window.dispatchEvent(new Event("oauth-toast"));
-      } catch (error) {}
+      } catch {
+        // Ignore browser storage restrictions and continue error handling.
+      }
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
     }
   }, []);
@@ -72,6 +76,26 @@ export const AuthProvider = ({ children }) => {
   const loginUser = async (loginData) => {
     const response = await axios.post(`${API_BASE_URL}/login`, loginData);
     persistAuth(response.data);
+    return response.data;
+  };
+
+  const updateUserProfile = async (profileData) => {
+    const response = await axios.patch(`${API_BASE_URL}/user`, profileData, {
+      headers: {
+        Authorization: authorizationToken,
+      },
+    });
+    setUser(response.data.user);
+    return response.data;
+  };
+
+  const updateUserPassword = async (passwordData) => {
+    const response = await axios.patch(`${API_BASE_URL}/user/password`, passwordData, {
+      headers: {
+        Authorization: authorizationToken,
+      },
+    });
+    setUser(response.data.user);
     return response.data;
   };
 
@@ -131,6 +155,8 @@ export const AuthProvider = ({ children }) => {
         loginUser,
         logoutUser,
         registerUser,
+        updateUserProfile,
+        updateUserPassword,
         user,
         userName,
         userRole,

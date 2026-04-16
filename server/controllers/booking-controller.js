@@ -8,10 +8,12 @@ const puppeteer = require("puppeteer");
 const os = require("os");
 const path = require("path");
 const fs = require("fs/promises");
+const { resolveAuthContext } = require("../middlewares/auth-middleware");
 const { validateCouponForAmount } = require("../services/coupon-service");
 const { buildCheckoutPricing } = require("../services/pricing-service");
 const { getTransporter } = require("../utils/mailer");
 const { cloudinary } = require("../config/cloudinary");
+const { buildTicketAccessToken, getPrimaryClientUrl, verifyTicketAccessToken } = require("../utils/runtime-config");
 const { incrementUserInterestSignals } = require("../services/recommendation-service");
 const {
   assertSeatsLockedByUser,
@@ -145,13 +147,22 @@ const withRetry = async (operation, { attempts = 3, delayMs = 350, shouldRetry }
   throw lastError;
 };
 
+const buildTicketAccessUrl = (booking = {}) => {
+  const token = buildTicketAccessToken({
+    bookingId: booking.bookingId,
+    eventDate: booking.event?.date || booking.createdAt || null,
+  });
+
+  if (!token) {
+    return `${getPrimaryClientUrl().replace(/\/$/, "")}/ticket/${booking.bookingId}`;
+  }
+
+  return `${getPrimaryClientUrl().replace(/\/$/, "")}/ticket/${booking.bookingId}?access=${encodeURIComponent(token)}`;
+};
+
 const generateTicketImageWithPuppeteer = async ({ booking }) => {
   const filePath = path.join(os.tmpdir(), `ticket-${booking.bookingId}-${Date.now()}.png`);
-  const primaryClientUrl = String(process.env.CLIENT_URL || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)[0] || "http://localhost:5173";
-  const liveTicketUrl = `${primaryClientUrl.replace(/\/$/, "")}/ticket/${booking.bookingId}`;
+  const liveTicketUrl = String(booking.qrPayload || "").trim() || buildTicketAccessUrl(booking);
   const eventDate = booking.event?.date
     ? new Date(booking.event.date).toLocaleDateString("en-IN", {
         weekday: "short",
@@ -365,6 +376,7 @@ const logTicketEmailFailure = async ({ bookingId, error, userId } = {}) => {
 const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null } = {}) => {
   let tempFilePath = "";
   let uploadedTicketUrl = "";
+  let createdTicketImage = false;
   const normalizedBookingId = String(bookingId || "").trim();
   if (!normalizedBookingId) {
     throw createHttpError(400, "Booking id is required");
@@ -389,6 +401,21 @@ const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null }
 
     if (booking.ticketEmailStatus === "sent" && booking.ticketEmailSentAt && booking.ticketImageUrl) {
       return { message: "Ticket already emailed", alreadyDelivered: true, booking: serializeBooking(booking) };
+    }
+
+    const nextQrPayload = String(booking.qrPayload || "").trim();
+    if (!nextQrPayload || !/[?&]access=/.test(nextQrPayload)) {
+      booking.qrPayload = buildTicketAccessUrl(booking);
+      booking.qrCodeDataUrl = await QRCode.toDataURL(booking.qrPayload, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 360,
+        color: {
+          dark: "#1c1c1c",
+          light: "#ffffff",
+        },
+      });
+      await booking.save();
     }
 
     const recipientEmail = booking.user?.email || requestedBy?.email;
@@ -418,6 +445,7 @@ const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null }
       if (!uploadedTicketUrl) {
         throw createHttpError(500, "Unable to store ticket image");
       }
+      createdTicketImage = true;
     }
 
     const transporter = getTransporter();
@@ -449,7 +477,7 @@ const deliverBookingTicketByBookingId = async ({ bookingId, requestedBy = null }
       error,
       userId: requestedBy?._id,
     });
-    if (uploadedTicketUrl) {
+    if (createdTicketImage && uploadedTicketUrl) {
       await cleanupCloudinaryTicket(uploadedTicketUrl);
     }
     if (normalizedBookingId) {
@@ -705,9 +733,10 @@ const finalizeBooking = async ({
       paymentId,
     });
 
-    const ticketPath = `/ticket/${booking.bookingId}`;
-    const ticketUrl = `${process.env.CLIENT_URL?.split(",")[0] || "http://localhost:5173"}${ticketPath}`;
-    const qrPayload = ticketUrl;
+    const qrPayload = buildTicketAccessUrl({
+      ...booking.toObject(),
+      event: reservedEvent,
+    });
     const qrCodeDataUrl = await QRCode.toDataURL(qrPayload, {
       errorCorrectionLevel: "M",
       margin: 1,
@@ -975,11 +1004,11 @@ const deliverBookingTicket = async (req, res) => {
   } catch (error) {
     console.error("booking-ticket-delivery-failed", error);
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       message:
         error.message === "Mail server is not configured"
           ? "Ticket email server is not configured"
-          : "Unable to email ticket right now",
+          : error.message || "Unable to email ticket right now",
     });
   }
 };
@@ -995,6 +1024,31 @@ const getBookingTicketByBookingId = async (req, res) => {
     const booking = await Booking.findOne({ bookingId }).lean();
     if (!booking) {
       return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    let authContext = null;
+    try {
+      authContext = await resolveAuthContext(req);
+    } catch (error) {
+      if (req.header("Authorization")) {
+        return res.status(error.statusCode || 401).json({ message: error.message || "Invalid or expired token" });
+      }
+    }
+
+    const ticketAccessToken = String(req.query.access || "").trim();
+    const hasTicketTokenAccess = ticketAccessToken
+      ? verifyTicketAccessToken({ token: ticketAccessToken, bookingId })
+      : false;
+    const requestUserRole = typeof authContext?.user?.getRole === "function"
+      ? authContext.user.getRole()
+      : String(authContext?.user?.role || "user");
+    const isOwner = booking.user?.toString?.() === authContext?.user?._id?.toString?.();
+    const hasPrivilegedAccess = Boolean(authContext?.user) && (isOwner || requestUserRole === "admin");
+
+    if (!hasPrivilegedAccess && !hasTicketTokenAccess) {
+      return res.status(authContext?.user ? 403 : 401).json({
+        message: authContext?.user ? "You cannot access this ticket" : "Please login or use a valid ticket link",
+      });
     }
 
     const event = await Event.findById(booking.event);

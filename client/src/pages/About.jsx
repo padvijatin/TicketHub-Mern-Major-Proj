@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { BadgeCheck, CalendarClock, CreditCard, MapPin, QrCode, ShieldCheck, Sparkles, Ticket } from "lucide-react";
 
 const capabilityCards = [
@@ -77,7 +78,7 @@ export const About = () => {
               className="rounded-[2.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.6rem] py-[1.9rem] text-center shadow-[0_18px_40px_rgba(28,28,28,0.06)] transition-transform duration-200 hover:translate-y-[-2px]"
             >
               <span className={`mx-auto inline-flex h-[5.4rem] w-[5.4rem] items-center justify-center rounded-[1.8rem] ${iconClassName}`}>
-                <Icon className="h-[2.3rem] w-[2.3rem]" />
+                {createElement(Icon, { className: "h-[2.3rem] w-[2.3rem]" })}
               </span>
               <p className="mt-[1.5rem] text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
                 {title}
@@ -106,7 +107,7 @@ export const About = () => {
                 className="rounded-[2.2rem] border border-[rgba(28,28,28,0.08)] bg-[linear-gradient(180deg,#ffffff_0%,#fff7f9_100%)] px-[1.6rem] py-[1.8rem] shadow-[0_16px_36px_rgba(28,28,28,0.05)]"
               >
                 <span className="inline-flex h-[5rem] w-[5rem] items-center justify-center rounded-[1.6rem] bg-[rgba(248,68,100,0.1)] text-[var(--color-primary)]">
-                  <Icon className="h-[2.1rem] w-[2.1rem]" />
+                  {createElement(Icon, { className: "h-[2.1rem] w-[2.1rem]" })}
                 </span>
                 <h3 className="mt-[1.3rem] text-[1.85rem] font-bold text-[var(--color-text-primary)]">{title}</h3>
                 <p className="mt-[0.65rem] text-[1.38rem] leading-[1.72] text-[var(--color-text-secondary)]">
@@ -123,7 +124,7 @@ export const About = () => {
           </h2>
 
           <div className="mt-[1.8rem] grid gap-[1.4rem] md:grid-cols-2">
-            {whyChooseUs.map((item, index) => (
+            {whyChooseUs.map((item) => (
               <article
                 key={item}
                 className="flex items-center gap-[1rem] rounded-[1.8rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] py-[1.3rem] shadow-[0_14px_32px_rgba(28,28,28,0.05)]"

@@ -5,12 +5,14 @@ import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth-context.jsx";
 import PosterImage from "../PosterImage.jsx";
 import { fallbackPosterImage, resolvePosterSource } from "../posterImageUtils.js";
+import { getApiErrorMessage } from "../../utils/apiError.js";
 import {
   createAdminEvent,
   deleteAdminEvent,
   getAdminEvents,
   updateAdminEvent,
 } from "../../utils/adminApi.js";
+import { getValidatedFieldClassName } from "../../utils/formValidation.js";
 
 const createSeatZone = () => ({
   sectionGroup: "",
@@ -342,6 +344,8 @@ const EventManagement = ({ role }) => {
 
     return validateFormState(formState);
   }, [formState, isFormOpen]);
+  const getEventFieldClassName = (fieldName, baseClassName = formInputClassName) =>
+    getValidatedFieldClassName(baseClassName, Boolean(isSubmitAttempted && formErrors.fieldErrors[fieldName]));
 
   const resetForm = () => {
     setFormState(initialFormState);
@@ -368,7 +372,7 @@ const EventManagement = ({ role }) => {
       resetForm();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to create event right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to create event right now" }));
     },
   });
 
@@ -383,7 +387,7 @@ const EventManagement = ({ role }) => {
       resetForm();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to update event right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to update event right now" }));
     },
   });
 
@@ -403,7 +407,7 @@ const EventManagement = ({ role }) => {
       invalidateManagementQueries();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to update event status right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to update event status right now" }));
     },
   });
 
@@ -414,7 +418,7 @@ const EventManagement = ({ role }) => {
       invalidateManagementQueries();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to archive event right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to archive event right now" }));
     },
   });
 
@@ -610,7 +614,7 @@ const EventManagement = ({ role }) => {
                     onChange={(eventObject) => setFormState((current) => ({ ...current, [field]: eventObject.target.value }))}
                     min={field === "price" || field === "seatsPerRow" || field === "totalSeats" ? 0 : undefined}
                     step={field === "latitude" || field === "longitude" ? "any" : undefined}
-                    className={formInputClassName}
+                    className={getEventFieldClassName(field)}
                   />
                   {isSubmitAttempted && formErrors.fieldErrors[field] ? (
                     <span className="text-[1.1rem] font-medium text-[var(--color-error)]">{formErrors.fieldErrors[field]}</span>
@@ -625,7 +629,7 @@ const EventManagement = ({ role }) => {
                   list="event-category-suggestions"
                   value={formState.category}
                   onChange={(eventObject) => setFormState((current) => ({ ...current, category: eventObject.target.value }))}
-                  className={formInputClassName}
+                  className={getEventFieldClassName("category")}
                 />
                 <datalist id="event-category-suggestions">
                   {categorySuggestions.map((categoryOption) => (
@@ -689,7 +693,7 @@ const EventManagement = ({ role }) => {
                     rows="4"
                     value={formState.description}
                     onChange={(eventObject) => setFormState((current) => ({ ...current, description: eventObject.target.value }))}
-                    className={formTextareaClassName}
+                    className={getEventFieldClassName("description", formTextareaClassName)}
                   />
                 </label>
                 <label className="grid gap-[0.5rem] text-[1.25rem] font-semibold text-[var(--color-text-primary)]">
@@ -698,7 +702,7 @@ const EventManagement = ({ role }) => {
                     rows="6"
                     value={formState.aboutThisEvent}
                     onChange={(eventObject) => setFormState((current) => ({ ...current, aboutThisEvent: eventObject.target.value }))}
-                    className={formTextareaClassName}
+                    className={getEventFieldClassName("aboutThisEvent", formTextareaClassName)}
                   />
                 </label>
               </div>
@@ -714,7 +718,7 @@ const EventManagement = ({ role }) => {
                     type="text"
                     value={formState.poster}
                     onChange={(eventObject) => setFormState((current) => ({ ...current, poster: eventObject.target.value, removePoster: false }))}
-                    className={formInputClassName}
+                    className={getEventFieldClassName("poster")}
                   />
                 </label>
                 <label className="mt-[1rem] flex h-[4.6rem] cursor-pointer items-center justify-center gap-[0.6rem] rounded-[1.2rem] border border-dashed border-[rgba(28,28,28,0.18)] bg-[rgba(28,28,28,0.02)] text-[1.2rem] font-semibold text-[var(--color-text-primary)]">
@@ -811,7 +815,7 @@ const EventManagement = ({ role }) => {
                             }))
                           }
                           min={field === "price" || field === "seatsPerRow" || field === "totalSeats" ? 0 : undefined}
-                          className={formInputClassName}
+                          className={getValidatedFieldClassName(formInputClassName, Boolean(isSubmitAttempted && formErrors.seatZoneErrors[zoneIndex]?.[field]))}
                         />
                         {isSubmitAttempted && formErrors.seatZoneErrors[zoneIndex]?.[field] ? (
                           <span className="text-[1.05rem] font-medium text-[var(--color-error)]">

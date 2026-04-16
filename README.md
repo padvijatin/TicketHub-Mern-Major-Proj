@@ -1,111 +1,107 @@
-# TicketHub MERN Project
+# TicketHub
 
-TicketHub is a full-stack MERN ticketing platform with booking, seat locking, payments, ticket delivery, admin tools, wishlist, and recommendation rails. The app runs with a React + Vite frontend and an Express + MongoDB backend.
+TicketHub is a full-stack MERN event-booking platform built for a major project. It includes authentication, event discovery, seat selection, live seat locking, Razorpay payments, QR-based tickets, email delivery, wishlist support, admin controls, organizer tools, validation improvements, and responsive UI polish across devices.
 
-## Current status
+## Highlights
 
-- Frontend: React 19, Vite 7, React Router 7, Tailwind CSS 4, Axios, React Query, Swiper, React Toastify.
-- Backend: Express 5, MongoDB + Mongoose, JWT auth, bcrypt, Zod validation, Razorpay, Nodemailer, Cloudinary, Puppeteer.
-- Authentication, event discovery, booking + payment, ticket generation + email, admin management, and user booking history are all implemented.
+- MERN architecture with React + Vite frontend and Express + MongoDB backend
+- JWT authentication with register, login, logout, Google OAuth, profile update, and password update
+- Event discovery for movies, sports, and live events
+- Seat selection with real-time locking
+- Razorpay payment order creation and verification
+- Secure ticket access with protected fetch and signed access links
+- Ticket generation, Cloudinary upload, and email delivery
+- Admin and organizer dashboards for events, bookings, users, and coupons
+- Inline form validation with field-level error messages
+- Improved status-code handling and cleaner API error display
+- Mobile, tablet, and desktop responsive layouts
 
-## Core features
+## Tech Stack
 
-- JWT auth with register, login, logout, and protected user fetch
-- Event listing with content-type routing (movies, sports, events) and location-aware filtering
-- Seat-zone booking flow with seat locks and booking confirmation
-- Razorpay payment verification and booking finalization
-- Ticket email pipeline:
-  - payment success
-  - ticket image generation/capture
-  - Cloudinary upload
-  - email attachment + download link
-- Booking history and live ticket view with QR
-- Wishlist with add/remove/sync
-- Admin panel for events, users, bookings, coupons
-- Recommendation feed:
-  - popular (bookings/views)
-  - trending (recent + high engagement)
-  - recommended (user interest signals: category/city/type)
+### Frontend
 
-## Tech stack
+- React 19
+- Vite 7
+- React Router 7
+- Tailwind CSS 4
+- Axios
+- TanStack React Query
+- Swiper
+- React Toastify
+- Framer Motion
 
-- Frontend: React, Vite, React Router DOM, Tailwind CSS, Axios, React Toastify
-- Backend: Node.js, Express, MongoDB, Mongoose, JWT, bcrypt, Zod
+### Backend
 
-## Architecture summary
+- Node.js
+- Express 5
+- MongoDB
+- Mongoose
+- JWT
+- bcrypt
+- Zod
+- Razorpay
+- Nodemailer
+- Cloudinary
+- Puppeteer
+- Socket.IO
 
-- `client/` contains the React + Vite frontend
-- `server/` contains the Express + MongoDB backend
-- the frontend consumes REST APIs from `server/api/*`
-- authentication is handled with JWT tokens stored on the client and verified on protected backend routes
-- real-time seat locking is handled through Socket.IO
-- ticket generation uses Puppeteer + QR code generation + Cloudinary upload + email delivery
+## Main Features
 
-## Viva / Demo talking points
+### User Features
 
-### Frontend stack
+- Register and login with email/password
+- Google sign-in support
+- Browse movies, sports, and event listings
+- Filter content by location
+- Save events to wishlist
+- Book seats with live availability updates
+- Pay through Razorpay
+- View bookings and tickets
+- Update profile and password
 
-- React 19 for UI and routing-driven page structure
-- Vite 7 for fast local development and production builds
-- React Router DOM 7 for navigation and protected flow transitions
-- Tailwind CSS 4 for responsive styling
-- React Query for data fetching and cache invalidation
-- Axios for API communication
+### Ticketing Features
 
-### Backend stack
+- QR-based ticket generation
+- Ticket delivery through email
+- Ticket image hosting on Cloudinary
+- Auth-protected ticket fetch
+- Signed access-token support for shared ticket links
 
-- Express 5 for API routing and middleware
-- MongoDB + Mongoose for persistent event, user, booking, and payment data
-- JWT for authentication
-- bcrypt for password hashing
-- Zod for request validation
-- Razorpay for payment order creation and verification
-- Nodemailer for ticket email delivery
-- Cloudinary for poster and generated ticket asset hosting
-- Puppeteer + QRCode for ticket image generation
+### Admin / Organizer Features
 
-### Auth flow
+- Dashboard overview with revenue and booking insights
+- Event create, update, approval, and archive flows
+- Booking management
+- Coupon management
+- User management for admins
 
-1. User registers or logs in from the frontend.
-2. Backend validates input, checks credentials, and returns a JWT token.
-3. Frontend stores the token and sends it in the `Authorization` header for protected APIs.
-4. Backend verifies the token in auth middleware before allowing protected actions.
+## Security and Quality Improvements
 
-### Payment flow
+This version includes a stronger hardening pass than the earlier baseline:
 
-1. User selects seats and moves to the payment page.
-2. Frontend creates a payment order from the backend.
-3. Razorpay checkout opens with the order details.
-4. After successful payment, the frontend sends payment identifiers back to the backend.
-5. Backend verifies the Razorpay signature and finalizes the booking.
+- protected ticket access instead of exposing raw booking data publicly
+- payment ownership checks during verification
+- role checks moved ahead of upload middleware for admin event routes
+- better runtime environment validation for JWT, CORS/client URL, Cloudinary, and Razorpay setup
+- improved HTTP status codes for auth, booking, contact, and payment flows
+- centralized frontend API error messaging
+- stronger request validation with Zod
+- lint-clean frontend
+- passing frontend and backend test suites
 
-### Seat locking flow
-
-1. When a user enters seat selection, the frontend joins the event room through Socket.IO.
-2. Available, locked, and booked seats are synchronized in real time.
-3. Locking a seat temporarily reserves it for the current user.
-4. Releasing a seat or successful booking updates other connected users instantly.
-
-### Ticket generation flow
-
-1. After payment verification, backend creates the booking record.
-2. A QR payload is generated for the ticket.
-3. Ticket content is rendered and converted into an image.
-4. Ticket image is uploaded to Cloudinary.
-5. Ticket link and/or attachment is delivered through email and shown in booking history.
-
-## Project structure
+## Project Structure
 
 ```text
 TicketHub/
 |-- client/
+|   |-- public/
 |   |-- src/
 |   |   |-- components/
 |   |   |-- pages/
 |   |   |-- store/
-|   |   `-- utils/
-|   |-- package.json
-|   `-- README.md
+|   |   |-- utils/
+|   |   `-- ...
+|   `-- package.json
 |-- server/
 |   |-- controllers/
 |   |-- middlewares/
@@ -113,13 +109,14 @@ TicketHub/
 |   |-- router/
 |   |-- utils/
 |   |-- validators/
-|   |-- server.js
-|   |-- package.json
-|   `-- README.md
-`-- README.md
+|   `-- package.json
+|-- README.md
+`-- .gitignore
 ```
 
-## Frontend routes
+## Routes
+
+### Frontend
 
 - `/`
 - `/movies`
@@ -127,52 +124,74 @@ TicketHub/
 - `/events`
 - `/about`
 - `/contact`
-- `/admin`
-- `/register`
 - `/login`
-- `/logout`
+- `/register`
+- `/profile`
+- `/wishlist`
+- `/bookings`
+- `/admin`
+- `/organizer`
+- `/event/:id`
+- `/event/:id/seats`
+- `/event/:id/payment`
+- `/event/:id/confirmation`
+- `/ticket/:bookingId`
 
-## Backend APIs
+### Backend API Base
 
-Base API URL: `http://localhost:5000/api`
+`http://localhost:5000/api`
 
-- Auth: `/auth/*`
-- Events: `/events/*`
-- Bookings: `/bookings/*`
-- Payment: `/payment/*`
-- Wishlist: `/wishlist/*`
-- Coupons: `/coupons/*`
-- Admin: `/admin/*`
+### Main API Groups
 
-## Environment variables
+- `/auth`
+- `/events`
+- `/bookings`
+- `/payment`
+- `/wishlist`
+- `/coupons`
+- `/admin`
+- `/contact`
 
-Backend values are loaded from `server/.env`.
+## Environment Setup
 
-Required server variables:
+Environment files are ignored by git. Keep your real secrets in `server/.env` locally.
 
-- `PORT=5000`
-- `MONGODB_URI=your_mongodb_connection_string`
-- `JWT_SECRET=your_secret_key`
-- `CLIENT_URL=http://localhost:5173,http://localhost:5174`
-- `RAZORPAY_KEY_ID=...`
-- `RAZORPAY_KEY_SECRET=...`
-- `SMTP_HOST=...`
-- `SMTP_PORT=587`
-- `SMTP_SECURE=false`
-- `SMTP_USER=...`
-- `SMTP_PASS=...`
-- `SMTP_FROM=...`
-- `CLOUDINARY_CLOUD_NAME=...`
-- `CLOUDINARY_API_KEY=...`
-- `CLOUDINARY_API_SECRET=...`
+### Required backend variables
 
-Optional client variable:
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=use_a_long_secure_secret_value
+CLIENT_URL=http://localhost:5173,http://localhost:5174
 
-- `VITE_API_URL=http://localhost:5000/api/auth`
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URL=http://localhost:5000/api/auth/google/callback
 
-The frontend already falls back to `http://localhost:5000/api/auth` if `VITE_API_URL` is not set.
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 
-## Local setup
+SMTP_HOST=your_smtp_host
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+SMTP_FROM=your_sender_email
+
+CONTACT_RECEIVER_EMAIL=your_receiver_email
+
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
+
+### Optional frontend variable
+
+```env
+VITE_API_URL=http://localhost:5000/api/auth
+```
+
+## Local Development
 
 ### 1. Install dependencies
 
@@ -186,18 +205,14 @@ cd client
 npm install
 ```
 
-### 2. Configure the backend
-
-Create `server/.env` from `server/.env.example` and add your real MongoDB URI and JWT secret.
-
-### 3. Start the backend
+### 2. Start backend
 
 ```bash
 cd server
 npm run dev
 ```
 
-### 4. Start the frontend
+### 3. Start frontend
 
 ```bash
 cd client
@@ -207,44 +222,50 @@ npm run dev
 Frontend default URL: `http://localhost:5173`  
 Backend default URL: `http://localhost:5000`
 
-## Notes
+## Available Scripts
 
-- Auth tokens are stored in `localStorage`.
-- CORS allows localhost + origins listed in `CLIENT_URL`.
-- Event popularity uses persisted event metrics (`viewCount`, `bookingCount`).
-- Personalized recommendations use stored user interest signals.
-
-## Suggested demo flow
-
-1. Register or login as a user.
-2. Browse movies, sports, and events.
-3. Open an event and show seat selection.
-4. Move to payment and explain Razorpay verification.
-5. Show booking confirmation and live ticket view.
-6. Open wishlist and booking history.
-7. Login as admin and show event/user/booking management.
-
-## Available scripts
-
-In `client`:
+### Client
 
 - `npm run dev`
 - `npm run build`
-- `npm run preview`
 - `npm run lint`
+- `npm run test:run`
 
-In `server`:
+### Server
 
 - `npm run dev`
 - `npm start`
+- `npm run test:run`
 
-## Future scope
+## Verification
 
-- Caching for events and high-traffic lists.
-- Analytics dashboard for bookings, revenue, and popular events.
-- Performance optimizations and route-level lazy loading.
-- Rate limiting and security hardening on sensitive APIs.
+Recent verification completed on this codebase:
 
-## Authoring direction
+- frontend lint: passed
+- frontend tests: passed
+- backend tests: passed
 
-Current baseline supports production-style booking and ticket delivery. Next milestones can focus on analytics dashboards, notification queueing, and recommendation quality tuning.
+## Demo Flow
+
+1. Register or log in as a normal user.
+2. Browse movies, sports, and events.
+3. Open an event and show seat selection.
+4. Continue to payment and explain Razorpay verification.
+5. Show booking confirmation and ticket view.
+6. Open wishlist and bookings.
+7. Log in as admin or organizer and show dashboard tools.
+
+## Future Scope
+
+- analytics expansion for admin and organizer roles
+- notifications and reminders
+- queue-based email/ticket jobs
+- caching and performance optimization
+- deeper recommendation tuning
+- deployment automation and monitoring
+
+## Author
+
+**Padvijatin**
+
+GitHub repository: `https://github.com/padvijatin/TicketHub-Mern-Major-Proj`

@@ -4,6 +4,7 @@ import { Search, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth-context.jsx";
 import { deleteAdminUser, getAdminUsers, updateAdminUser } from "../../utils/adminApi.js";
+import { getApiErrorMessage } from "../../utils/apiError.js";
 
 const UserManagement = () => {
   const queryClient = useQueryClient();
@@ -30,7 +31,7 @@ const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to update user right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to update user right now" }));
     },
   });
 
@@ -42,7 +43,7 @@ const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to delete user right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to delete user right now" }));
     },
   });
 

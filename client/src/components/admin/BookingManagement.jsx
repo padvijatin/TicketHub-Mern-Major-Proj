@@ -4,6 +4,7 @@ import { ChevronRight, Eye, MoreHorizontal, Search, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth-context.jsx";
 import { deleteAdminBooking, getAdminBookings, updateAdminBooking } from "../../utils/adminApi.js";
+import { getApiErrorMessage } from "../../utils/apiError.js";
 
 const statusConfig = {
   paid: {
@@ -82,7 +83,7 @@ const BookingManagement = ({ role = "admin" }) => {
       setShowStatusMenuFor("");
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to update booking right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to update booking right now" }));
     },
   });
 
@@ -97,7 +98,7 @@ const BookingManagement = ({ role = "admin" }) => {
       setSelectedBooking(null);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Unable to delete booking right now");
+      toast.error(getApiErrorMessage(error, { fallbackMessage: "Unable to delete booking right now" }));
     },
   });
 

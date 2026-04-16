@@ -3,6 +3,25 @@ const { getTransporter } = require("../utils/mailer");
 
 const normalizeText = (value = "") => String(value || "").trim();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const transientMailerErrorCodes = new Set([
+  "EAUTH",
+  "ECONNECTION",
+  "ESOCKET",
+  "ETIMEDOUT",
+  "ECONNREFUSED",
+  "EHOSTUNREACH",
+  "ENOTFOUND",
+]);
+
+const getContactFailureStatusCode = (error) => {
+  const code = String(error?.code || "").trim().toUpperCase();
+
+  if (error?.message === "Mail server is not configured" || transientMailerErrorCodes.has(code)) {
+    return 503;
+  }
+
+  return 500;
+};
 
 const submitContactForm = async (req, res) => {
   let contactRecord = null;
@@ -38,7 +57,7 @@ const submitContactForm = async (req, res) => {
     const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
 
     if (!adminEmail || !fromEmail) {
-      return res.status(500).json({
+      return res.status(503).json({
         message: "Contact email is not configured on the server",
       });
     }
@@ -90,7 +109,7 @@ const submitContactForm = async (req, res) => {
 
     console.error("Contact form submission failed:", error);
 
-    return res.status(500).json({
+    return res.status(getContactFailureStatusCode(error)).json({
       message:
         error.message === "Mail server is not configured"
           ? "The contact email server is not configured"

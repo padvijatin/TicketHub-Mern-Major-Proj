@@ -11,12 +11,10 @@ const wishlistRoute = require("./router/wishlist-router");
 const adminRoute = require("./router/admin-router");
 const contactRoute = require("./router/contact-router");
 const paymentRoute = require("./router/payment-router");
+const { getClientUrls } = require("./utils/runtime-config");
 
 const buildAllowedOrigins = (clientUrl = process.env.CLIENT_URL || "") => {
-  const configuredOrigins = String(clientUrl)
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const configuredOrigins = getClientUrls(clientUrl);
 
   return new Set([
     "http://localhost:5173",

@@ -5,6 +5,7 @@ import { CheckCircle, ChevronLeft, Lock, QrCode, Shield, Smartphone, Tag, Wallet
 import { toast } from "react-toastify";
 import PosterImage from "../components/PosterImage.jsx";
 import { getCoupons, validateCoupon } from "../utils/couponApi.js";
+import { getApiErrorMessage } from "../utils/apiError.js";
 import { createPaymentOrder, getEventById, verifyPayment } from "../utils/eventApi.js";
 import { useAuth } from "../store/auth-context.jsx";
 
@@ -171,7 +172,7 @@ export const Payment = () => {
       queryClient.invalidateQueries({ queryKey: ["checkout-coupons", subtotal, authorizationToken] });
     },
     onError: (error) => {
-      const message = error.response?.data?.message || "Unable to validate coupon right now";
+      const message = getApiErrorMessage(error, { fallbackMessage: "Unable to validate coupon right now" });
       setPricingState({
         subtotal,
         couponCode,
@@ -249,7 +250,13 @@ export const Payment = () => {
       });
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || "Unable to complete payment right now";
+      const message = getApiErrorMessage(error, {
+        fallbackMessage: error.message || "Unable to complete payment right now",
+        statusMessages: {
+          401: "Please log in again to complete payment.",
+          409: "The booking state changed while you were paying. Please review your seats and try again.",
+        },
+      });
       if (message === "Please login to complete payment") {
         navigate("/login", {
           state: {

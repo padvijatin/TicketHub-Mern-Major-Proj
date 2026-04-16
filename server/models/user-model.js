@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { getJwtSecretOrThrow } = require("../utils/runtime-config");
 
 const allowedRoles = ["user", "organizer", "admin"];
 const allowedStatuses = ["active", "blocked"];
@@ -143,7 +144,7 @@ userSchema.methods.generateToken = function generateToken() {
       role,
       status,
     },
-    process.env.JWT_SECRET,
+    getJwtSecretOrThrow(),
     {
       expiresIn: "7d",
     }

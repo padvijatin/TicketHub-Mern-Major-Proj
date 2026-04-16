@@ -11,6 +11,9 @@ import { About } from "./pages/About";
 import { Contact } from "./pages/Contact";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { AuthEntryRedirect } from "./pages/AuthEntryRedirect";
+import { NotFound } from "./pages/NotFound";
+import { Profile } from "./pages/Profile";
 import { Logout } from "./pages/Logout";
 import { Wishlist } from "./pages/Wishlist";
 import { Bookings } from "./pages/Bookings";
@@ -47,7 +50,9 @@ const App = () => {
           toast.success(oauthSuccess);
           window.sessionStorage.removeItem("oauth_success");
         }
-      } catch (error) {}
+      } catch {
+        // Access to sessionStorage can fail in restricted browser contexts.
+      }
     };
 
     showOauthToasts();
@@ -57,32 +62,40 @@ const App = () => {
 
   return (
     <Router>
-      <Navbar />
-      <ErrorBoundary>
-        <Suspense fallback={pageFallback}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/movies" element={<Movies />} />
-            <Route path="/sports" element={<Sports />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/organizer" element={<Organizer />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/bookings" element={<Bookings />} />
-            <Route path="/event/:id" element={<EventDetails />} />
-            <Route path="/event/:id/seats" element={<SeatSelection />} />
-            <Route path="/event/:id/payment" element={<Payment />} />
-            <Route path="/event/:id/confirmation" element={<BookingConfirmation />} />
-            <Route path="/ticket/:bookingId" element={<TicketView />} />
-            <Route path="/logout" element={<Logout />} />
-          </Routes>
-        </Suspense>
-      </ErrorBoundary>
-      <Footer />
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex-1">
+          <ErrorBoundary>
+            <Suspense fallback={pageFallback}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/movies" element={<Movies />} />
+                <Route path="/sports" element={<Sports />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/organizer" element={<Organizer />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/login/:audience" element={<AuthEntryRedirect entry="login" />} />
+                <Route path="/register/:audience" element={<AuthEntryRedirect entry="register" />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/wishlist" element={<Wishlist />} />
+                <Route path="/bookings" element={<Bookings />} />
+                <Route path="/event/:id" element={<EventDetails />} />
+                <Route path="/event/:id/seats" element={<SeatSelection />} />
+                <Route path="/event/:id/payment" element={<Payment />} />
+                <Route path="/event/:id/confirmation" element={<BookingConfirmation />} />
+                <Route path="/ticket/:bookingId" element={<TicketView />} />
+                <Route path="/logout" element={<Logout />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+        <Footer />
+      </div>
       <ToastContainer position="top-right" autoClose={2500} />
     </Router>
   );
