@@ -231,6 +231,7 @@ export const StadiumLayout = ({ event }) => {
         onRemove={() => {}}
         onClear={clearSelection}
         eventId={event.id}
+        eventSnapshot={event}
         hideChips
         bookingMeta={bookingMeta}
       />

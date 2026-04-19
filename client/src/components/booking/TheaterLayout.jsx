@@ -180,6 +180,7 @@ export const TheaterLayout = ({ event }) => {
         onRemove={toggleSeat}
         onClear={clearSelection}
         eventId={event.id}
+        eventSnapshot={event}
         bookingMeta={bookingMeta}
       />
     </div>

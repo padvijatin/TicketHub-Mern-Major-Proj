@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronLeft, Lock, QrCode, Shield, Smartphone, Tag, WalletCards } from "lucide-react";
@@ -126,14 +126,22 @@ export const Payment = () => {
   const subtotal = bookingState.total || 0;
   const currency = bookingState.currency || "Rs ";
   const bookingMeta = bookingState.bookingMeta || {};
+  const eventSnapshot = bookingState.eventSnapshot || null;
   const [pricingState, setPricingState] = useState(() => buildPricingStateForSubtotal(subtotal));
   const activePricingState = pricingState.subtotal === subtotal ? pricingState : buildPricingStateForSubtotal(subtotal);
   const { couponCode, appliedCoupon, couponFeedback, pricing } = activePricingState;
+  const [preparedOrderState, setPreparedOrderState] = useState({
+    key: "",
+    status: "idle",
+    data: null,
+  });
+  const preparedOrderRequestRef = useRef("");
 
   const { data: event, isLoading, isError } = useQuery({
     queryKey: ["event", id, authorizationToken],
     queryFn: () => getEventById(id, authorizationToken),
     enabled: Boolean(id),
+    initialData: eventSnapshot,
   });
 
   const { data: coupons = [], isLoading: couponsLoading } = useQuery({
@@ -151,6 +159,20 @@ export const Payment = () => {
   }, [currency, pricing.discountAmount]);
 
   const featuredCoupons = useMemo(() => coupons.slice(0, 4), [coupons]);
+  const orderPreparationKey = useMemo(
+    () =>
+      JSON.stringify({
+        eventId: id,
+        seats: [...selectedItems],
+        couponCode: appliedCoupon?.code || "",
+        amount: pricing.finalAmount,
+      }),
+    [appliedCoupon?.code, id, pricing.finalAmount, selectedItems]
+  );
+
+  useEffect(() => {
+    void loadRazorpayScript().catch(() => {});
+  }, []);
 
   const couponMutation = useMutation({
     mutationFn: (code) => validateCoupon({ code, cartAmount: subtotal, authorizationToken }),
@@ -184,6 +206,74 @@ export const Payment = () => {
     },
   });
 
+  useEffect(() => {
+    if (!isLoggedIn || !authorizationToken || !id || !selectedItems.length || couponMutation.isPending) {
+      return;
+    }
+
+    if (
+      preparedOrderState.key === orderPreparationKey &&
+      (preparedOrderState.status === "ready" || preparedOrderState.status === "pending")
+    ) {
+      return;
+    }
+
+    let ignore = false;
+    preparedOrderRequestRef.current = orderPreparationKey;
+    setPreparedOrderState({
+      key: orderPreparationKey,
+      status: "pending",
+      data: null,
+    });
+
+    createPaymentOrder({
+      eventId: id,
+      seats: selectedItems,
+      couponCode: appliedCoupon?.code || "",
+      amount: pricing.finalAmount,
+      bookingMeta,
+      authorizationToken,
+    })
+      .then((response) => {
+        if (ignore || preparedOrderRequestRef.current !== orderPreparationKey) {
+          return;
+        }
+
+        setPreparedOrderState({
+          key: orderPreparationKey,
+          status: "ready",
+          data: response,
+        });
+      })
+      .catch(() => {
+        if (ignore || preparedOrderRequestRef.current !== orderPreparationKey) {
+          return;
+        }
+
+        setPreparedOrderState({
+          key: orderPreparationKey,
+          status: "error",
+          data: null,
+        });
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    appliedCoupon?.code,
+    authorizationToken,
+    bookingMeta,
+    couponMutation.isPending,
+    id,
+    isLoggedIn,
+    orderPreparationKey,
+    preparedOrderState.key,
+    preparedOrderState.status,
+    pricing.finalAmount,
+    selectedItems,
+  ]);
+
   const paymentMutation = useMutation({
     mutationFn: async () => {
       if (!isLoggedIn) {
@@ -196,14 +286,17 @@ export const Payment = () => {
 
       await loadRazorpayScript();
 
-      const orderResponse = await createPaymentOrder({
-        eventId: id,
-        seats: selectedItems,
-        couponCode: appliedCoupon?.code || "",
-        amount: pricing.finalAmount,
-        bookingMeta,
-        authorizationToken,
-      });
+      const orderResponse =
+        preparedOrderState.key === orderPreparationKey && preparedOrderState.status === "ready" && preparedOrderState.data
+          ? preparedOrderState.data
+          : await createPaymentOrder({
+              eventId: id,
+              seats: selectedItems,
+              couponCode: appliedCoupon?.code || "",
+              amount: pricing.finalAmount,
+              bookingMeta,
+              authorizationToken,
+            });
 
       const paymentResponse = await openRazorpayCheckout({
         order: orderResponse.order,

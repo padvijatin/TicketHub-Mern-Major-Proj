@@ -160,6 +160,14 @@ const buildTicketAccessUrl = (booking = {}) => {
   return `${getPrimaryClientUrl().replace(/\/$/, "")}/ticket/${booking.bookingId}?access=${encodeURIComponent(token)}`;
 };
 
+const toDataUrl = ({ buffer, contentType } = {}) => {
+  if (!buffer) {
+    return "";
+  }
+
+  return `data:${contentType || "image/png"};base64,${Buffer.from(buffer).toString("base64")}`;
+};
+
 const generateTicketImageWithPuppeteer = async ({ booking }) => {
   const filePath = path.join(os.tmpdir(), `ticket-${booking.bookingId}-${Date.now()}.png`);
   const liveTicketUrl = String(booking.qrPayload || "").trim() || buildTicketAccessUrl(booking);
@@ -173,7 +181,20 @@ const generateTicketImageWithPuppeteer = async ({ booking }) => {
     : "TBA";
   const seatText = (booking.seats || []).join(", ") || "General";
   const sectionText = (booking.summary || []).map((item) => item.label).join(", ") || "Standard";
-  const poster = String(booking.event?.poster || "").trim();
+  const normalizedPoster = normalizeCloudinaryAssetUrl(booking.event?.poster || "");
+  let embeddedPoster = "";
+  if (normalizedPoster) {
+    try {
+      const posterAsset = await fetchImageBufferFromUrl(normalizedPoster);
+      embeddedPoster = toDataUrl({
+        buffer: posterAsset?.buffer,
+        contentType: posterAsset?.contentType,
+      });
+    } catch (error) {
+      console.error("booking-ticket-poster-fetch-failed", error);
+    }
+  }
+  const poster = embeddedPoster || normalizedPoster;
   const qrCodeDataUrl = booking.qrCodeDataUrl || "";
   const title = escapeHtml(booking.event?.title || "TicketHub Event");
   const category = escapeHtml(booking.event?.category || "Event");

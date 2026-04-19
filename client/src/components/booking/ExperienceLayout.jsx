@@ -238,6 +238,7 @@ export const ExperienceLayout = ({ event }) => {
         onRemove={() => {}}
         onClear={clearSelection}
         eventId={event.id}
+        eventSnapshot={event}
         hideChips
         bookingMeta={bookingMeta}
       />
