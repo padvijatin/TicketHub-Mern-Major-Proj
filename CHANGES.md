@@ -1,5 +1,21 @@
 # TicketHub Changes
 
+## Admin Coupons and Listing Filters
+
+- Added coupon edit support in admin with active/inactive status handling.
+- Added frontend API support for coupon updates.
+- Added backend coupon update endpoint with shared payload normalization and validation.
+- Improved duplicate-code, expiry-date, and usage-limit validation for coupon updates.
+- Updated listing filters to use proper single-select behavior for date, price, and event category.
+- Removed the `Premium` price option from listing filter groups and quick filters.
+- Added case-insensitive backend matching for category, language, genres, format, and tags.
+
+## Admin Event Seat Layout Presets
+
+- Updated suggested movie seat zones to `Recliner`, `Prime`, and `Standard` with row-based defaults.
+- Updated suggested sports seat zones to the pitch-based layout shown in the admin screenshots.
+- Updated suggested event seat zones to `Fan Pit`, `Gold Circle`, and `Regular` with the latest pricing and seat counts.
+
 ## Booking and Ticket Delivery
 
 - Reworked payment-to-ticket flow to backend-first delivery.
@@ -38,6 +54,13 @@
 
 - Verified lint and module load checks on updated backend and frontend files.
 - Verified live resend flows and DB ticket status updates during implementation.
+
+## Latest Verification
+
+- frontend lint: passed
+- frontend tests: passed
+- frontend build: passed
+- backend tests: passed
 
 ## Auth UI Polish
 

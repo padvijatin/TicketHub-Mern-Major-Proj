@@ -11,26 +11,31 @@ export const listingFilterConfigs = {
       {
         key: "language",
         label: "Languages",
+        selectionMode: "multiple",
         options: ["Hindi", "English", "Telugu", "Tamil", "Malayalam", "Marathi", "Gujarati"],
       },
       {
         key: "genres",
         label: "Genres",
+        selectionMode: "multiple",
         options: ["Action", "Comedy", "Drama", "Thriller", "Romance", "Sci-Fi", "Adventure"],
       },
       {
         key: "format",
         label: "Format",
+        selectionMode: "multiple",
         options: ["2D", "3D", "IMAX", "4DX"],
       },
       {
         key: "price",
         label: "Price",
-        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999", "Premium"],
+        selectionMode: "single",
+        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999"],
       },
       {
         key: "date",
         label: "Dates",
+        selectionMode: "single",
         options: ["Today", "This Weekend", "This Month", "Upcoming"],
       },
     ],
@@ -41,22 +46,25 @@ export const listingFilterConfigs = {
       { key: "tags", value: "IPL" },
       { key: "tags", value: "T20" },
       { key: "date", value: "This Weekend" },
-      { key: "price", value: "Premium" },
+      { key: "price", value: "Rs 1000 - 1999" },
     ],
     groups: [
       {
         key: "tags",
         label: "Tags",
+        selectionMode: "multiple",
         options: ["IPL", "T20", "ODI", "International"],
       },
       {
         key: "price",
         label: "Price",
-        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999", "Premium"],
+        selectionMode: "single",
+        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999"],
       },
       {
         key: "date",
         label: "Dates",
+        selectionMode: "single",
         options: ["Today", "This Weekend", "This Month", "Upcoming"],
       },
     ],
@@ -73,16 +81,19 @@ export const listingFilterConfigs = {
       {
         key: "category",
         label: "Categories",
+        selectionMode: "single",
         options: ["Comedy", "Workshop", "Concert", "Music", "Festival"],
       },
       {
         key: "price",
         label: "Price",
-        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999", "Premium"],
+        selectionMode: "single",
+        options: ["Under Rs 500", "Rs 500 - 999", "Rs 1000 - 1999"],
       },
       {
         key: "date",
         label: "Dates",
+        selectionMode: "single",
         options: ["Today", "This Weekend", "This Month", "Upcoming"],
       },
     ],
@@ -93,7 +104,6 @@ const priceParamMap = {
   "Under Rs 500": "under500",
   "Rs 500 - 999": "500-999",
   "Rs 1000 - 1999": "1000-1999",
-  Premium: "premium",
 };
 
 const dateParamMap = {
@@ -139,4 +149,24 @@ export const buildEventFilterParams = (pageType, activeFilters = {}) => {
   }
 
   return params;
+};
+
+export const toggleListingFilterValue = (filterConfig, currentFilters, key, value) => {
+  const group = filterConfig?.groups?.find((item) => item.key === key);
+  const currentValues = currentFilters[key] || [];
+  const isSelected = currentValues.includes(value);
+
+  if (group?.selectionMode === "single") {
+    return {
+      ...currentFilters,
+      [key]: isSelected ? [] : [value],
+    };
+  }
+
+  return {
+    ...currentFilters,
+    [key]: isSelected
+      ? currentValues.filter((item) => item !== value)
+      : [...currentValues, value],
+  };
 };

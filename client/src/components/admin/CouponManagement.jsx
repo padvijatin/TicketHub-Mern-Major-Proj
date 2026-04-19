@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../store/auth-context.jsx";
-import { createAdminCoupon, getAdminCoupons } from "../../utils/adminApi.js";
+import { createAdminCoupon, getAdminCoupons, updateAdminCoupon } from "../../utils/adminApi.js";
 import { getApiErrorMessage } from "../../utils/apiError.js";
 import {
   getValidatedFieldClassName,
@@ -20,6 +20,7 @@ const initialFormState = {
   minOrderAmount: "0",
   usageLimit: "100",
   expiryDate: "",
+  isActive: true,
 };
 
 const rupeeSymbol = "\u20B9";
@@ -44,6 +45,16 @@ const formatExpiryDate = (value) => {
 const getTodayDateValue = () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return localDate.toISOString().split("T")[0];
+};
+
+const getDateInputValue = (value) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return localDate.toISOString().split("T")[0];
 };
 
@@ -86,10 +97,22 @@ const validateCouponState = (formState) => {
   };
 };
 
+const getFormStateFromCoupon = (coupon) => ({
+  code: coupon?.code || "",
+  discountType: coupon?.discountType || "percentage",
+  discountValue: String(coupon?.discountValue ?? "0"),
+  maxDiscount: coupon?.maxDiscount == null ? "" : String(coupon.maxDiscount),
+  minOrderAmount: String(coupon?.minOrderAmount ?? "0"),
+  usageLimit: coupon?.usageLimit == null ? "" : String(coupon.usageLimit),
+  expiryDate: getDateInputValue(coupon?.expiryDate),
+  isActive: Boolean(coupon?.isActive),
+});
+
 const CouponManagement = () => {
   const queryClient = useQueryClient();
   const { authorizationToken } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
   const [formState, setFormState] = useState(initialFormState);
   const [fieldErrors, setFieldErrors] = useState(initialErrorState);
   const [touchedFields, setTouchedFields] = useState(initialTouchedState);
@@ -105,14 +128,33 @@ const CouponManagement = () => {
     onSuccess: () => {
       toast.success("Coupon created successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
-      setFormState(initialFormState);
-      setIsCreateOpen(false);
+      closeCouponModal();
     },
     onError: (error) => {
       toast.error(
         getApiErrorMessage(error, {
           fallbackMessage: "Unable to create coupon right now",
           statusMessages: {
+            409: "A coupon with this code already exists. Please use a different code.",
+          },
+        })
+      );
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ couponId, payload }) => updateAdminCoupon({ authorizationToken, couponId, payload }),
+    onSuccess: () => {
+      toast.success("Coupon updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
+      closeCouponModal();
+    },
+    onError: (error) => {
+      toast.error(
+        getApiErrorMessage(error, {
+          fallbackMessage: "Unable to update coupon right now",
+          statusMessages: {
+            404: "This coupon no longer exists.",
             409: "A coupon with this code already exists. Please use a different code.",
           },
         })
@@ -142,15 +184,53 @@ const CouponManagement = () => {
     }
   };
 
-  const closeCreateModal = () => {
-    if (createMutation.isPending) return;
-    setIsCreateOpen(false);
+  const resetCouponForm = () => {
     setFormState(initialFormState);
     setFieldErrors(initialErrorState);
     setTouchedFields(initialTouchedState);
   };
 
-  const handleCreateCoupon = (event) => {
+  const closeCouponModal = () => {
+    if (createMutation.isPending || updateMutation.isPending) return;
+    setIsCreateOpen(false);
+    setEditingCoupon(null);
+    resetCouponForm();
+  };
+
+  const openCreateModal = () => {
+    setEditingCoupon(null);
+    setIsCreateOpen(true);
+    resetCouponForm();
+  };
+
+  const openEditModal = (coupon) => {
+    setEditingCoupon(coupon);
+    setIsCreateOpen(true);
+    setFormState(getFormStateFromCoupon(coupon));
+    setFieldErrors(initialErrorState);
+    setTouchedFields(initialTouchedState);
+  };
+
+  const buildCouponPayload = () => {
+    const normalizedCode = formState.code.trim().toUpperCase();
+    const discountValue = Number(formState.discountValue || 0);
+    const minOrderAmount = Number(formState.minOrderAmount || 0);
+    const usageLimit = formState.usageLimit === "" ? null : Number(formState.usageLimit || 0);
+    const maxDiscount = formState.maxDiscount === "" ? null : Number(formState.maxDiscount || 0);
+
+    return {
+      code: normalizedCode,
+      discountType: formState.discountType,
+      discountValue,
+      maxDiscount,
+      minOrderAmount,
+      usageLimit,
+      expiryDate: formState.expiryDate,
+      isActive: formState.isActive,
+    };
+  };
+
+  const handleSubmitCoupon = (event) => {
     event.preventDefault();
     const nextErrors = validateCouponState(formState);
 
@@ -169,21 +249,14 @@ const CouponManagement = () => {
       return;
     }
 
-    const normalizedCode = formState.code.trim().toUpperCase();
-    const discountValue = Number(formState.discountValue || 0);
-    const minOrderAmount = Number(formState.minOrderAmount || 0);
-    const usageLimit = formState.usageLimit === "" ? null : Number(formState.usageLimit || 0);
-    const maxDiscount = formState.maxDiscount === "" ? null : Number(formState.maxDiscount || 0);
+    const payload = buildCouponPayload();
 
-    createMutation.mutate({
-      code: normalizedCode,
-      discountType: formState.discountType,
-      discountValue,
-      maxDiscount,
-      minOrderAmount,
-      usageLimit,
-      expiryDate: formState.expiryDate,
-    });
+    if (editingCoupon?.id) {
+      updateMutation.mutate({ couponId: editingCoupon.id, payload });
+      return;
+    }
+
+    createMutation.mutate(payload);
   };
 
   return (
@@ -200,7 +273,7 @@ const CouponManagement = () => {
 
         <button
           type="button"
-          onClick={() => setIsCreateOpen(true)}
+          onClick={openCreateModal}
           className="inline-flex items-center gap-[0.7rem] rounded-[1.6rem] bg-[var(--color-primary)] px-[1.9rem] py-[1.15rem] text-[1.35rem] font-semibold text-white shadow-[0_16px_28px_rgba(248,68,100,0.2)] transition-transform duration-150 hover:translate-y-[-1px] active:scale-[0.98]"
         >
           <Plus className="h-[1.6rem] w-[1.6rem]" />
@@ -253,10 +326,11 @@ const CouponManagement = () => {
 
                   <button
                     type="button"
+                    onClick={() => openEditModal(coupon)}
                     className="inline-flex h-[3.4rem] w-[3.4rem] items-center justify-center rounded-full text-[var(--color-text-primary)] transition-colors hover:bg-[rgba(28,28,28,0.04)]"
-                    aria-label={`Coupon ${coupon.code}`}
+                    aria-label={`Edit coupon ${coupon.code}`}
                   >
-                    <MoreHorizontal className="h-[1.8rem] w-[1.8rem]" />
+                    <Pencil className="h-[1.8rem] w-[1.8rem]" />
                   </button>
                 </div>
 
@@ -296,7 +370,7 @@ const CouponManagement = () => {
       )}
 
       {isCreateOpen ? (
-        <div className="fixed inset-0 z-[1300] bg-[rgba(28,28,28,0.35)] px-[1.6rem] py-[3rem]" onClick={closeCreateModal}>
+        <div className="fixed inset-0 z-[1300] bg-[rgba(28,28,28,0.35)] px-[1.6rem] py-[3rem]" onClick={closeCouponModal}>
           <div className="flex min-h-full items-center justify-center">
             <div
               className="w-full max-w-[61rem] rounded-[2.2rem] bg-white p-[2.8rem] shadow-[0_24px_54px_rgba(28,28,28,0.18)] sm:p-[3.2rem]"
@@ -304,20 +378,20 @@ const CouponManagement = () => {
             >
               <div className="flex items-start justify-between gap-[1rem]">
                 <h3 className="text-[2rem] font-extrabold tracking-[-0.03em] text-[var(--color-text-primary)]">
-                  Create Coupon
+                  {editingCoupon ? "Edit Coupon" : "Create Coupon"}
                 </h3>
 
                 <button
                   type="button"
-                  onClick={closeCreateModal}
+                  onClick={closeCouponModal}
                   className="inline-flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full text-[var(--color-text-secondary)] transition-all duration-150 hover:bg-[rgba(28,28,28,0.04)] active:scale-[0.94]"
-                  aria-label="Close create coupon modal"
+                  aria-label="Close coupon modal"
                 >
                   <X className="h-[1.8rem] w-[1.8rem]" />
                 </button>
               </div>
 
-              <form className="mt-[2.4rem] space-y-[1.9rem]" onSubmit={handleCreateCoupon} noValidate>
+              <form className="mt-[2.4rem] space-y-[1.9rem]" onSubmit={handleSubmitCoupon} noValidate>
                 <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
                   <span>
                     Coupon Code <span className="text-[var(--color-primary)]">*</span>
@@ -376,6 +450,18 @@ const CouponManagement = () => {
                 </div>
 
                 <div className="grid gap-[1.6rem] sm:grid-cols-2">
+                  <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
+                    Status
+                    <select
+                      value={formState.isActive ? "active" : "inactive"}
+                      onChange={(event) => handleInputChange("isActive", event.target.value === "active")}
+                      className="h-[4.8rem] rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[1.4rem] text-[1.45rem] font-medium outline-none transition-colors focus:border-[rgba(248,68,100,0.35)]"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </label>
+
                   <label className="grid gap-[0.8rem] text-[1.5rem] font-semibold text-[var(--color-text-primary)]">
                     Max Uses
                     <input
@@ -455,17 +541,23 @@ const CouponManagement = () => {
                 <div className="flex justify-end gap-[1rem] pt-[0.8rem]">
                   <button
                     type="button"
-                    onClick={closeCreateModal}
+                    onClick={closeCouponModal}
                     className="rounded-[1.4rem] border border-[rgba(28,28,28,0.08)] bg-white px-[2.3rem] py-[1.05rem] text-[1.35rem] font-semibold text-[var(--color-text-primary)] transition-colors hover:bg-[rgba(28,28,28,0.03)]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isPending || updateMutation.isPending}
                     className="rounded-[1.4rem] bg-[var(--color-primary)] px-[2.3rem] py-[1.05rem] text-[1.35rem] font-semibold text-white shadow-[0_16px_28px_rgba(248,68,100,0.18)] transition-transform duration-150 hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {createMutation.isPending ? "Creating..." : "Create"}
+                    {createMutation.isPending
+                      ? "Creating..."
+                      : updateMutation.isPending
+                        ? "Saving..."
+                        : editingCoupon
+                          ? "Save Changes"
+                          : "Create"}
                   </button>
                 </div>
               </form>

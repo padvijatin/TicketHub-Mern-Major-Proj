@@ -89,6 +89,10 @@ const parseCommaValues = (value = "") =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildExactMatchPattern = (value = "") => new RegExp(`^${escapeRegExp(String(value).trim())}$`, "i");
+
 const formatStartTime = (value) => {
   const parsedDate = new Date(value);
 
@@ -239,11 +243,11 @@ const buildEventQuery = (queryParams = {}) => {
     };
   }
 
-  if (category) query.category = category;
-  if (language.length) query.language = { $in: language };
-  if (genres.length) query.genres = { $in: genres };
-  if (format.length) query.format = { $in: format };
-  if (tags.length) query.tags = { $in: tags };
+  if (category) query.category = buildExactMatchPattern(category);
+  if (language.length) query.language = { $in: language.map(buildExactMatchPattern) };
+  if (genres.length) query.genres = { $in: genres.map(buildExactMatchPattern) };
+  if (format.length) query.format = { $in: format.map(buildExactMatchPattern) };
+  if (tags.length) query.tags = { $in: tags.map(buildExactMatchPattern) };
   if (priceRange) query.price = priceRange;
   if (dateRange) query.date = dateRange;
 

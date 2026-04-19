@@ -132,6 +132,11 @@ export const createAdminCoupon = async ({ authorizationToken, payload }) => {
   return response.data.coupon;
 };
 
+export const updateAdminCoupon = async ({ authorizationToken, couponId, payload }) => {
+  const response = await axios.patch(`${adminApiUrl}/coupons/${couponId}`, payload, buildConfig(authorizationToken));
+  return response.data.coupon;
+};
+
 export const getAdminBookings = async (authorizationToken) => {
   const response = await axios.get(`${adminApiUrl}/bookings`, buildConfig(authorizationToken));
   return response.data.bookings || [];

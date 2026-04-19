@@ -5,7 +5,11 @@ import { PageHeroCarousel } from "../components/PageHeroCarousel.jsx";
 import { useLocationStore } from "../store/location-context.jsx";
 import { filterItemsByLocation } from "../store/location-utils.js";
 import { getEvents } from "../utils/eventApi.js";
-import { buildEventFilterParams, listingFilterConfigs } from "../utils/listingFilters.js";
+import {
+  buildEventFilterParams,
+  listingFilterConfigs,
+  toggleListingFilterValue,
+} from "../utils/listingFilters.js";
 
 export const Sports = () => {
   const [sports, setSports] = useState([]);
@@ -54,12 +58,9 @@ export const Sports = () => {
   const heroSports = useMemo(() => locationSports.slice(0, 3), [locationSports]);
 
   const handleToggleFilter = (key, value) => {
-    setActiveFilters((currentFilters) => ({
-      ...currentFilters,
-      [key]: currentFilters[key]?.includes(value)
-        ? currentFilters[key].filter((item) => item !== value)
-        : [...(currentFilters[key] || []), value],
-    }));
+    setActiveFilters((currentFilters) =>
+      toggleListingFilterValue(filterConfig, currentFilters, key, value)
+    );
   };
 
   return (

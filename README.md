@@ -1,6 +1,6 @@
 # TicketHub
 
-TicketHub is a full-stack MERN event-booking platform built for a major project. It includes authentication, event discovery, seat selection, live seat locking, Razorpay payments, QR-based tickets, email delivery, wishlist support, admin controls, organizer tools, validation improvements, and responsive UI polish across devices.
+TicketHub is a full-stack MERN event-booking platform built for a major project. It includes authentication, event discovery, seat selection, live seat locking, Razorpay payments, QR-based tickets, email delivery, wishlist support, admin controls, organizer tools, coupon management, validation improvements, and responsive UI polish across devices.
 
 ## Highlights
 
@@ -12,6 +12,7 @@ TicketHub is a full-stack MERN event-booking platform built for a major project.
 - Secure ticket access with protected fetch and signed access links
 - Ticket generation, Cloudinary upload, and email delivery
 - Admin and organizer dashboards for events, bookings, users, and coupons
+- Admin coupon create and edit flows with status and expiry handling
 - Inline form validation with field-level error messages
 - Improved status-code handling and cleaner API error display
 - Mobile, tablet, and desktop responsive layouts
@@ -71,8 +72,9 @@ TicketHub is a full-stack MERN event-booking platform built for a major project.
 
 - Dashboard overview with revenue and booking insights
 - Event create, update, approval, and archive flows
+- Suggested seat-zone presets for movies, sports, and live events in the admin event form
 - Booking management
-- Coupon management
+- Coupon create and edit management
 - User management for admins
 
 ## Security and Quality Improvements
@@ -88,6 +90,7 @@ This version includes a stronger hardening pass than the earlier baseline:
 - stronger request validation with Zod
 - lint-clean frontend
 - passing frontend and backend test suites
+- improved listing filter behavior with safer single-select handling and case-insensitive backend matching
 
 ## Project Structure
 
@@ -243,7 +246,17 @@ Recent verification completed on this codebase:
 
 - frontend lint: passed
 - frontend tests: passed
+- frontend build: passed
 - backend tests: passed
+
+## Recent Admin Updates
+
+- Added admin coupon editing support from the dashboard UI
+- Added backend coupon update endpoint and validation for duplicate codes, expiry dates, usage limits, and active state
+- Updated event/movie/sports listing filters so single-select filters behave correctly
+- Removed the `Premium` price filter option from listing pages
+- Added case-insensitive backend matching for category, language, genre, format, and tag filters
+- Updated add-event suggested seat layouts to match current movie, sports, and event presets used in the admin form
 
 ## Demo Flow
 

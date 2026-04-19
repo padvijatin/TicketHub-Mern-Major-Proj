@@ -50,14 +50,14 @@ const seatZonePresets = {
     { sectionGroup: "Pitch", name: "West Premium", price: "2499", totalSeats: "140", rows: "", seatsPerRow: "" },
   ],
   movie: [
-    { sectionGroup: "Screening", name: "Premium", price: "499", totalSeats: "", rows: "A, B", seatsPerRow: "12" },
-    { sectionGroup: "Screening", name: "Classic", price: "349", totalSeats: "", rows: "C, D, E", seatsPerRow: "12" },
-    { sectionGroup: "Screening", name: "Saver", price: "249", totalSeats: "", rows: "F, G", seatsPerRow: "12" },
+    { sectionGroup: "Screening", name: "Recliner", price: "549", totalSeats: "16", rows: "A, B", seatsPerRow: "8" },
+    { sectionGroup: "Screening", name: "Prime", price: "349", totalSeats: "36", rows: "C, D, E", seatsPerRow: "12" },
+    { sectionGroup: "Screening", name: "Standard", price: "249", totalSeats: "48", rows: "F, G, H, I", seatsPerRow: "12" },
   ],
   event: [
-    { sectionGroup: "Stage", name: "Fan Pit", price: "2499", totalSeats: "160", rows: "", seatsPerRow: "" },
-    { sectionGroup: "Stage", name: "Gold Circle", price: "1799", totalSeats: "220", rows: "", seatsPerRow: "" },
-    { sectionGroup: "Stage", name: "Regular", price: "999", totalSeats: "260", rows: "", seatsPerRow: "" },
+    { sectionGroup: "Stage", name: "Fan Pit", price: "3999", totalSeats: "300", rows: "", seatsPerRow: "" },
+    { sectionGroup: "Stage", name: "Gold Circle", price: "2499", totalSeats: "300", rows: "", seatsPerRow: "" },
+    { sectionGroup: "Stage", name: "Regular", price: "999", totalSeats: "300", rows: "", seatsPerRow: "" },
   ],
 };
 

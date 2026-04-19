@@ -672,66 +672,103 @@ const listCoupons = async (req, res) => {
   }
 };
 
+const normalizeCouponPayload = (body = {}) => {
+  const code = String(body.code || "").trim().toUpperCase();
+  const discountType = String(body.discountType || "").trim().toLowerCase();
+  const discountValue = Math.max(0, Number(body.discountValue) || 0);
+  const maxDiscount = body.maxDiscount === "" || body.maxDiscount == null
+    ? null
+    : Math.max(0, Number(body.maxDiscount) || 0);
+  const minOrderAmount = Math.max(0, Number(body.minOrderAmount) || 0);
+  const usageLimit = body.usageLimit === "" || body.usageLimit == null
+    ? null
+    : Math.max(1, Number(body.usageLimit) || 0);
+  const expiryDate = body.expiryDate ? new Date(body.expiryDate) : null;
+
+  if (expiryDate && !Number.isNaN(expiryDate.getTime())) {
+    expiryDate.setHours(23, 59, 59, 999);
+  }
+
+  return {
+    code,
+    discountType,
+    discountValue,
+    maxDiscount,
+    minOrderAmount,
+    usageLimit,
+    expiryDate,
+    isActive: parseBoolean(body.isActive, true),
+  };
+};
+
+const validateCouponPayload = async ({
+  payload,
+  existingCoupon = null,
+} = {}) => {
+  if (!payload.code) {
+    return { status: 400, message: "Coupon code is required" };
+  }
+
+  if (!["percentage", "flat"].includes(payload.discountType)) {
+    return { status: 400, message: "Select a valid coupon type" };
+  }
+
+  if (payload.discountValue <= 0) {
+    return { status: 400, message: "Discount must be greater than zero" };
+  }
+
+  if (payload.discountType === "percentage" && payload.discountValue > 100) {
+    return { status: 400, message: "Percentage discount cannot be more than 100" };
+  }
+
+  if (!payload.expiryDate || Number.isNaN(payload.expiryDate.getTime())) {
+    return { status: 400, message: "Select a valid expiry date" };
+  }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  if (payload.expiryDate.getTime() < todayStart.getTime()) {
+    return { status: 400, message: "Expiry date cannot be in the past" };
+  }
+
+  if (payload.discountType !== "percentage" && payload.maxDiscount != null) {
+    payload.maxDiscount = null;
+  }
+
+  if (existingCoupon) {
+    const usedCount = Number(existingCoupon.usedCount) || 0;
+
+    if (payload.usageLimit != null && payload.usageLimit < usedCount) {
+      return { status: 400, message: "Usage limit cannot be lower than current redemptions" };
+    }
+  }
+
+  const codeFilter = existingCoupon
+    ? { code: payload.code, _id: { $ne: existingCoupon._id } }
+    : { code: payload.code };
+
+  const existingCouponWithCode = await Coupon.findOne(codeFilter).select("_id").lean();
+  if (existingCouponWithCode) {
+    return { status: 409, message: "A coupon with this code already exists" };
+  }
+
+  return { payload };
+};
+
 const createCoupon = async (req, res) => {
   try {
     if (!ensureAdmin(req, res)) {
       return;
     }
 
-    const code = String(req.body.code || "").trim().toUpperCase();
-    const discountType = String(req.body.discountType || "").trim().toLowerCase();
-    const discountValue = Math.max(0, Number(req.body.discountValue) || 0);
-    const maxDiscount = req.body.maxDiscount === "" || req.body.maxDiscount == null
-      ? null
-      : Math.max(0, Number(req.body.maxDiscount) || 0);
-    const minOrderAmount = Math.max(0, Number(req.body.minOrderAmount) || 0);
-    const usageLimit = req.body.usageLimit === "" || req.body.usageLimit == null
-      ? null
-      : Math.max(1, Number(req.body.usageLimit) || 0);
-    const expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
-    if (expiryDate && !Number.isNaN(expiryDate.getTime())) {
-      expiryDate.setHours(23, 59, 59, 999);
-    }
-
-    if (!code) {
-      return res.status(400).json({ message: "Coupon code is required" });
-    }
-
-    if (!['percentage', 'flat'].includes(discountType)) {
-      return res.status(400).json({ message: "Select a valid coupon type" });
-    }
-
-    if (discountValue <= 0) {
-      return res.status(400).json({ message: "Discount must be greater than zero" });
-    }
-
-    if (discountType === "percentage" && discountValue > 100) {
-      return res.status(400).json({ message: "Percentage discount cannot be more than 100" });
-    }
-
-    if (!expiryDate || Number.isNaN(expiryDate.getTime())) {
-      return res.status(400).json({ message: "Select a valid expiry date" });
-    }
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    if (expiryDate.getTime() < todayStart.getTime()) {
-      return res.status(400).json({ message: "Expiry date cannot be in the past" });
-    }
-
-    const existingCoupon = await Coupon.findOne({ code });
-    if (existingCoupon) {
-      return res.status(409).json({ message: "A coupon with this code already exists" });
+    const normalizedPayload = normalizeCouponPayload(req.body);
+    const validation = await validateCouponPayload({ payload: normalizedPayload });
+    if (validation.message) {
+      return res.status(validation.status).json({ message: validation.message });
     }
 
     const coupon = await Coupon.create({
-      code,
-      discountType,
-      discountValue,
-      maxDiscount,
-      minOrderAmount,
-      expiryDate,
-      usageLimit,
+      ...validation.payload,
       isActive: true,
     });
 
@@ -750,6 +787,70 @@ const createCoupon = async (req, res) => {
   } catch (error) {
     console.error("coupon-create-failed", error);
     return res.status(500).json({ message: "Unable to create coupon right now" });
+  }
+};
+
+const updateCoupon = async (req, res) => {
+  try {
+    if (!ensureAdmin(req, res)) {
+      return;
+    }
+
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    const normalizedPayload = normalizeCouponPayload(req.body);
+    const validation = await validateCouponPayload({
+      payload: normalizedPayload,
+      existingCoupon: coupon,
+    });
+    if (validation.message) {
+      return res.status(validation.status).json({ message: validation.message });
+    }
+
+    const previousState = {
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: Number(coupon.discountValue) || 0,
+      maxDiscount: coupon.maxDiscount == null ? null : Number(coupon.maxDiscount) || 0,
+      minOrderAmount: Number(coupon.minOrderAmount) || 0,
+      usageLimit: coupon.usageLimit == null ? null : Number(coupon.usageLimit) || 0,
+      expiryDate: coupon.expiryDate,
+      isActive: Boolean(coupon.isActive),
+    };
+
+    coupon.code = validation.payload.code;
+    coupon.discountType = validation.payload.discountType;
+    coupon.discountValue = validation.payload.discountValue;
+    coupon.maxDiscount = validation.payload.maxDiscount;
+    coupon.minOrderAmount = validation.payload.minOrderAmount;
+    coupon.usageLimit = validation.payload.usageLimit;
+    coupon.expiryDate = validation.payload.expiryDate;
+    coupon.isActive = validation.payload.isActive;
+
+    await coupon.save();
+
+    await logAdminAction({
+      action: "coupon_update",
+      entity: "coupon",
+      entityId: coupon._id,
+      actor: req.user,
+      metadata: {
+        code: coupon.code,
+        previousCode: previousState.code,
+        previousState,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Coupon updated successfully",
+      coupon: serializeCoupon(coupon),
+    });
+  } catch (error) {
+    console.error("coupon-update-failed", error);
+    return res.status(500).json({ message: "Unable to update coupon right now" });
   }
 };
 
@@ -898,6 +999,7 @@ module.exports = {
   deleteUser,
   listCoupons,
   createCoupon,
+  updateCoupon,
   listBookings,
   updateBooking,
   deleteBooking,
