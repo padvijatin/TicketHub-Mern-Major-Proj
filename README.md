@@ -1,84 +1,108 @@
 # TicketHub
 
-TicketHub is a full-stack MERN ticket-booking platform for movies, sports, and live events. It combines event discovery, seat booking, payments, ticket delivery, wishlist support, and admin management in one responsive project.
+TicketHub is a full-stack MERN ticket-booking platform for movies, sports, and live events. The project includes authentication, discovery rails, event detail pages, seat selection, Razorpay payments, QR ticket delivery, wishlist support, contact handling, and admin or organizer management tools.
 
-## Core Features
+## What The Project Covers
 
-- authentication with email/password and Google OAuth
-- browsing for movies, sports, and live events
-- seat selection with live availability updates
-- Razorpay payment flow
-- QR ticket generation and email delivery
-- wishlist and booking history
-- admin and organizer dashboards
-- coupon management and event moderation
-- responsive UI across desktop, tablet, and mobile
+- user registration, login, logout, profile update, and password update
+- Google OAuth entry flow
+- movies, sports, and live event discovery pages
+- home discovery feed with recommended, popular, and trending content
+- event details, ratings, location display, and poster-heavy hero layouts
+- seat selection with live seat locking support
+- Razorpay order creation and payment verification
+- booking confirmation, booking history, and ticket view pages
+- QR ticket generation, Cloudinary upload, and email delivery
+- wishlist sync between UI and backend
+- coupon validation and admin coupon management
+- admin or organizer dashboards for events, users, bookings, and coupons
 
-## Latest Frontend Update
-
-This release focuses on the customer-facing hero experience:
-
-- redesigned the home hero with a lighter cinematic layout
-- added a reusable `HeroPosterCard` component
-- refreshed listing page hero banners
-- rebuilt the event details hero with clearer metadata chips
-- aligned poster rendering with shared CSS utility classes
-- polished the About page heading colors
-
-See [CHANGES.md](./CHANGES.md) for the release summary.
-
-## Tech Stack
+## Application Areas
 
 ### Frontend
 
-- React
-- Vite
-- React Router
-- Tailwind CSS
-- Axios
-- TanStack React Query
-- Swiper
-- Framer Motion
+- React 19 with Vite 7
+- React Router 7 navigation
+- Tailwind CSS 4 styling
+- TanStack React Query data fetching
+- Swiper-based hero and content carousels
+- Framer Motion interactions
+- React Toastify feedback messaging
 
 ### Backend
 
-- Node.js
-- Express
-- MongoDB
-- Mongoose
-- JWT
-- Razorpay
-- Nodemailer
-- Cloudinary
-- Socket.IO
+- Express 5 API server
+- MongoDB with Mongoose models
+- JWT-based protected routes
+- Zod validation middleware
+- Razorpay payment integration
+- Nodemailer email delivery
+- Cloudinary media hosting
+- Socket.IO seat-lock support
 
-## Project Structure
+## Main Routes
 
-```text
-TicketHub/
-|-- client/
-|   |-- public/
-|   |-- src/
-|   |   |-- components/
-|   |   |-- pages/
-|   |   |-- store/
-|   |   `-- utils/
-|   `-- package.json
-|-- server/
-|   |-- controllers/
-|   |-- middlewares/
-|   |-- models/
-|   |-- router/
-|   |-- utils/
-|   `-- package.json
-|-- README.md
-|-- CHANGES.md
-`-- push.md
-```
+### Frontend routes
+
+- `/`
+- `/movies`
+- `/sports`
+- `/events`
+- `/about`
+- `/contact`
+- `/login`
+- `/login/:audience`
+- `/register`
+- `/register/:audience`
+- `/profile`
+- `/wishlist`
+- `/bookings`
+- `/event/:id`
+- `/event/:id/seats`
+- `/event/:id/payment`
+- `/event/:id/confirmation`
+- `/ticket/:bookingId`
+- `/admin`
+- `/organizer`
+
+### Backend API groups
+
+- `/api/auth`
+- `/api/events`
+- `/api/bookings`
+- `/api/payment`
+- `/api/wishlist`
+- `/api/coupons`
+- `/api/admin`
+- `/api/contact`
+
+## Current UI and Product Work Included
+
+- refreshed home hero with split content and floating poster card treatment
+- reusable `HeroPosterCard` component for hero sections
+- redesigned listing hero banners for movies, sports, and live events
+- rebuilt event details hero with category, date, time, and venue chips
+- consistent poster rendering through shared CSS utility classes
+- About page heading polish
+- existing booking, auth, admin, and ticket flows preserved
+
+## Verification Status
+
+The following checks were run successfully on April 19, 2026:
+
+- frontend lint: `npm.cmd run lint`
+- frontend tests: `npm.cmd run test:run`
+- frontend build: `npm.cmd run build`
+- backend tests: `npm.cmd run test:run`
+
+Frontend build note:
+
+- Vite completed the production build successfully.
+- The build reported a large chunk warning for the main frontend bundle, which is a performance note rather than a failed build.
 
 ## Local Setup
 
-### Install dependencies
+### 1. Install dependencies
 
 ```bash
 cd server
@@ -87,24 +111,26 @@ cd ../client
 npm install
 ```
 
-### Start development servers
+### 2. Start the backend
 
 ```bash
 cd server
 npm run dev
 ```
 
+### 3. Start the frontend
+
 ```bash
 cd client
 npm run dev
 ```
 
-- frontend: `http://localhost:5173`
-- backend: `http://localhost:5000`
+- frontend default URL: `http://localhost:5173`
+- backend default URL: `http://localhost:5000`
 
 ## Environment
 
-Create `server/.env` with your real credentials. Typical variables include:
+Create `server/.env` and add your real project secrets.
 
 ```env
 PORT=5000
@@ -139,20 +165,13 @@ Optional frontend variable:
 VITE_API_URL=http://localhost:5000/api
 ```
 
-## Scripts
+## Project Documents
 
-### Client
-
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run test:run`
-
-### Server
-
-- `npm run dev`
-- `npm start`
-- `npm run test:run`
+- [CHANGES.md](./CHANGES.md) for the consolidated change summary
+- [FLOWCHART.md](./FLOWCHART.md) for the project flow and lifecycle diagrams
+- [client/README.md](./client/README.md) for frontend-specific notes
+- [server/README.md](./server/README.md) for backend-specific notes
+- [push.md](./push.md) for push and verification commands
 
 ## Repository
 

@@ -2,25 +2,35 @@
 
 Run these commands from `c:\Projects\TicketHub`.
 
+## Verify Before Push
+
+```powershell
+cd client
+npm.cmd run lint
+npm.cmd run test:run
+npm.cmd run build
+cd ..\server
+npm.cmd run test:run
+cd ..
+```
+
+## Stage, Commit, And Push
+
 ```powershell
 git status
-cd client
-npm run lint
-npm run build
-cd ..
-git add README.md CHANGES.md push.md client/src/components/EventCard.jsx client/src/components/HeroCarousel.jsx client/src/components/HeroPosterCard.jsx client/src/components/PageHeroCarousel.jsx client/src/index.css client/src/pages/About.jsx client/src/pages/EventDetails.jsx client/src/pages/Home.jsx
-git commit -m "Refresh hero layouts and poster presentation"
+git add README.md CHANGES.md FLOWCHART.md push.md client/README.md server/README.md client/src/components/EventCard.jsx client/src/components/HeroCarousel.jsx client/src/components/HeroPosterCard.jsx client/src/components/PageHeroCarousel.jsx client/src/index.css client/src/pages/About.jsx client/src/pages/EventDetails.jsx client/src/pages/Home.jsx
+git commit -m "Improve docs and refresh hero experience"
 git push origin main
 ```
 
-## What This Release Includes
+## Verified Status
 
-- refreshed home hero layout
-- reusable hero poster card component
-- updated event and listing hero sections
-- consistent poster image styling
-- about page heading color cleanup
-- refreshed Markdown documentation
+Verified on April 19, 2026:
+
+- frontend lint passed
+- frontend tests passed
+- frontend build passed
+- backend tests passed
 
 ## GitHub Remote
 
