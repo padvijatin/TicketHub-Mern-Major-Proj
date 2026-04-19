@@ -27,6 +27,68 @@ const homeHeroGridClassName =
 const homeHeroContentClassName =
   "flex h-full min-w-0 max-w-[60rem] flex-col justify-center py-[0.2rem] md:py-[0.6rem]";
 
+const parseEventTimestamp = (item) => {
+  const parsedTime = new Date(item?.date || "").getTime();
+  return Number.isNaN(parsedTime) ? Number.POSITIVE_INFINITY : parsedTime;
+};
+
+const compareByUpcomingDate = (left, right) => {
+  const leftTimestamp = parseEventTimestamp(left);
+  const rightTimestamp = parseEventTimestamp(right);
+
+  if (leftTimestamp !== rightTimestamp) {
+    return leftTimestamp - rightTimestamp;
+  }
+
+  return String(left?.title || "").localeCompare(String(right?.title || ""));
+};
+
+const getStartOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.getTime();
+};
+
+const getUpcomingItems = (items = []) => {
+  const startOfToday = getStartOfToday();
+
+  return items
+    .filter((item) => {
+      const timestamp = parseEventTimestamp(item);
+      return Number.isFinite(timestamp) && timestamp >= startOfToday;
+    })
+    .sort(compareByUpcomingDate);
+};
+
+const dedupeItemsById = (items = []) => {
+  const seenIds = new Set();
+
+  return items.filter((item) => {
+    const itemId = String(item?.id || item?._id || item?.title || "");
+    if (!itemId || seenIds.has(itemId)) {
+      return false;
+    }
+
+    seenIds.add(itemId);
+    return true;
+  });
+};
+
+const getItemsByType = (items = [], contentType) =>
+  getUpcomingItems(items).filter((item) => item.contentType === contentType);
+
+const buildRailItems = ({ primary = [], fallback = [], limit = 8 }) =>
+  dedupeItemsById([...getUpcomingItems(primary), ...getUpcomingItems(fallback)]).slice(0, limit);
+
+const buildHeroSlides = (items = [], limit = 3) => {
+  const upcomingItems = getUpcomingItems(items);
+  const featuredByType = ["movie", "event", "sports"]
+    .map((type) => upcomingItems.find((item) => item.contentType === type))
+    .filter(Boolean);
+
+  return dedupeItemsById([...featuredByType, ...upcomingItems]).slice(0, limit);
+};
+
 const HeroSlide = ({ slide }) => {
   const fallbackClassName = heroFallbackByType[slide.contentType] || heroFallbackByType.event;
 
@@ -218,7 +280,9 @@ export const Home = () => {
     [homeEvents, selectedLocation]
   );
 
-  const heroSlides = useMemo(() => locationEvents.slice(0, 3), [locationEvents]);
+  const upcomingLocationEvents = useMemo(() => getUpcomingItems(locationEvents), [locationEvents]);
+
+  const heroSlides = useMemo(() => buildHeroSlides(upcomingLocationEvents), [upcomingLocationEvents]);
 
   const recommendedItemsByType = useMemo(() => {
     const wishlistedTypes = [...new Set(wishlistItems.map((item) => item.contentType).filter(Boolean))];
@@ -228,42 +292,62 @@ export const Home = () => {
     ];
 
     return orderedTypes.reduce((accumulator, type) => {
-      accumulator[type] = locationEvents.filter((item) => item.contentType === type).slice(0, 8);
+      accumulator[type] = getItemsByType(locationEvents, type).slice(0, 8);
       return accumulator;
     }, {});
   }, [locationEvents, wishlistItems]);
 
-  const recommendedMovies = discoverFeed?.recommended?.movies?.length
-    ? filterItemsByLocation(discoverFeed.recommended.movies, selectedLocation)
-    : recommendedItemsByType.movie || [];
-  const recommendedEvents = discoverFeed?.recommended?.events?.length
-    ? filterItemsByLocation(discoverFeed.recommended.events, selectedLocation)
-    : recommendedItemsByType.event || [];
-  const recommendedSports = discoverFeed?.recommended?.sports?.length
-    ? filterItemsByLocation(discoverFeed.recommended.sports, selectedLocation)
-    : recommendedItemsByType.sports || [];
+  const recommendedMovies = useMemo(
+    () =>
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.recommended?.movies || [], selectedLocation),
+        fallback: recommendedItemsByType.movie || [],
+      }),
+    [discoverFeed?.recommended?.movies, recommendedItemsByType.movie, selectedLocation]
+  );
+
+  const recommendedEvents = useMemo(
+    () =>
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.recommended?.events || [], selectedLocation),
+        fallback: recommendedItemsByType.event || [],
+      }),
+    [discoverFeed?.recommended?.events, recommendedItemsByType.event, selectedLocation]
+  );
+
+  const recommendedSports = useMemo(
+    () =>
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.recommended?.sports || [], selectedLocation),
+        fallback: recommendedItemsByType.sports || [],
+      }),
+    [discoverFeed?.recommended?.sports, recommendedItemsByType.sports, selectedLocation]
+  );
 
   const popularEvents = useMemo(
     () =>
-      discoverFeed?.popular?.events?.length
-        ? filterItemsByLocation(discoverFeed.popular.events, selectedLocation).slice(0, 8)
-        : locationEvents.filter((item) => item.contentType === "event").slice(0, 8),
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.popular?.events || [], selectedLocation),
+        fallback: getItemsByType(locationEvents, "event"),
+      }),
     [discoverFeed?.popular?.events, locationEvents, selectedLocation]
   );
 
   const popularMovies = useMemo(
     () =>
-      discoverFeed?.popular?.movies?.length
-        ? filterItemsByLocation(discoverFeed.popular.movies, selectedLocation).slice(0, 8)
-        : locationEvents.filter((item) => item.contentType === "movie").slice(0, 8),
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.popular?.movies || [], selectedLocation),
+        fallback: getItemsByType(locationEvents, "movie"),
+      }),
     [discoverFeed?.popular?.movies, locationEvents, selectedLocation]
   );
 
   const topGamesAndSportsEvents = useMemo(
     () =>
-      discoverFeed?.trending?.sports?.length
-        ? filterItemsByLocation(discoverFeed.trending.sports, selectedLocation).slice(0, 8)
-        : locationEvents.filter((item) => item.contentType === "sports").slice(0, 8),
+      buildRailItems({
+        primary: filterItemsByLocation(discoverFeed?.trending?.sports || [], selectedLocation),
+        fallback: getItemsByType(locationEvents, "sports"),
+      }),
     [discoverFeed?.trending?.sports, locationEvents, selectedLocation]
   );
 
